@@ -19,11 +19,27 @@ const thinBorder = {
   right: { style: 'thin', color: { argb: 'CBD5E1' } }
 };
 
-export const exportVMToExcel = async (vmData) => {
+export const exportVMToExcel = async (rawVmData) => {
   try {
-    if (!vmData) {
+    if (!rawVmData) {
       alert("Données de la VM introuvables pour l'exportation.");
       return;
+    }
+
+    let vmData = rawVmData;
+    const vmId = rawVmData?.id || rawVmData?._id || rawVmData?.vm_id;
+
+    // Fetch full VM details from backend if sub-lists are missing
+    if (vmId && (!rawVmData.networkFlows?.length || !rawVmData.softwareStack?.length || !rawVmData.securityCompliance?.length)) {
+      try {
+        const res = await fetch(`http://localhost:5000/api/vms/${vmId}`);
+        if (res.ok) {
+          const fetchedData = await res.json();
+          vmData = { ...rawVmData, ...fetchedData };
+        }
+      } catch (err) {
+        console.warn("Impossible de récupérer les détails complets de la VM depuis l'API, utilisation des données locales.", err);
+      }
     }
 
     // Data Normalization
@@ -34,12 +50,12 @@ export const exportVMToExcel = async (vmData) => {
     const contact = vmData.structureInfo?.contact || vmData.contact || '';
 
     const pubType = vmData.formPublication?.publication_type || vmData.publication_type || 'Intranet';
-    const targetPop = vmData.formPublication?.target_population || vmData.target_population || '';
-    const appName = vmData.formPublication?.app_name || vmData.app_name || 'VM_APP';
-    const dnsEntry = vmData.formPublication?.dns_entry || vmData.dns_entry || 'N/A';
-    const ipAddr = vmData.formPublication?.ip_address || vmData.ip_address || '10.0.0.1';
+    const targetPop = vmData.formPublication?.target_population || vmData.target_population || vmData.population_exploitante || '';
+    const appName = vmData.formPublication?.app_name || vmData.app_name || vmData.nom_application || 'VM_APP';
+    const dnsEntry = vmData.formPublication?.dns_entry || vmData.dns_entry || vmData.dns_site_web || 'N/A';
+    const ipAddr = vmData.formPublication?.ip_address || vmData.ip_address || vmData.ip_interne || '10.0.0.1';
     const port = vmData.formPublication?.port || vmData.port || '443';
-    const osServer = vmData.formPublication?.os_server || vmData.os_server || 'Windows Server 2022';
+    const osServer = vmData.formPublication?.os_server || vmData.os_server || vmData.os || 'Windows Server 2022';
 
     const archDesc = vmData.architecture_desc || vmData.architectureDesc || '';
 
@@ -81,11 +97,9 @@ export const exportVMToExcel = async (vmData) => {
 
     if (loadedFromTemplate) {
       // -----------------------------------------------------------------------
-      // MODE 1: Fill template file
-      // -----------------------------------------------------------------------
-      
       // ONGLET 1 : Principale
-      let sheet1 = workbook.getWorksheet('Principale') || workbook.getWorksheet(1);
+      // -----------------------------------------------------------------------
+      const sheet1 = workbook.getWorksheet('Principale') || workbook.getWorksheet(1);
       if (sheet1) {
         sheet1.getCell('B29').value = pole;
         sheet1.getCell('B30').value = structure;
@@ -94,16 +108,18 @@ export const exportVMToExcel = async (vmData) => {
         sheet1.getCell('B33').value = contact;
       }
 
+      // -----------------------------------------------------------------------
       // ONGLET 2 : Publication VM
-      let sheet2 = workbook.getWorksheet('Publication VM') || workbook.getWorksheet(2);
+      // -----------------------------------------------------------------------
+      const sheet2 = workbook.getWorksheet('Publication VM') || workbook.getWorksheet(2);
       if (sheet2) {
-        sheet2.getCell('B2').value = pubType;
-        sheet2.getCell('B3').value = targetPop;
-        sheet2.getCell('B4').value = appName;
-        sheet2.getCell('B5').value = dnsEntry;
-        sheet2.getCell('B6').value = ipAddr;
-        sheet2.getCell('B7').value = port;
-        sheet2.getCell('B8').value = osServer;
+        sheet2.getCell('E13').value = pubType;
+        sheet2.getCell('F13').value = targetPop;
+        sheet2.getCell('F14').value = appName;
+        sheet2.getCell('E15').value = dnsEntry;
+        sheet2.getCell('E16').value = ipAddr;
+        sheet2.getCell('E17').value = port;
+        sheet2.getCell('F20').value = osServer;
 
         if (Array.isArray(softwareStack) && softwareStack.length > 0) {
           const stackMap = new Map();
@@ -112,7 +128,7 @@ export const exportVMToExcel = async (vmData) => {
             if (name) stackMap.set(name, item);
           });
 
-          for (let r = 1; r <= sheet2.rowCount; r++) {
+          for (let r = 20; r <= sheet2.rowCount; r++) {
             const cellD = sheet2.getCell(`D${r}`).value;
             const softName = cellD ? String(cellD).trim().toLowerCase() : '';
 
@@ -126,40 +142,45 @@ export const exportVMToExcel = async (vmData) => {
         }
       }
 
+      // -----------------------------------------------------------------------
       // ONGLET 3 : Informations liées au service
-      let sheet3 = workbook.getWorksheet('Informations liées au service') || workbook.getWorksheet(3);
+      // -----------------------------------------------------------------------
+      const sheet3 = workbook.getWorksheet('Informations liées au service') || workbook.getWorksheet(3);
       if (sheet3) {
         if (archDesc) sheet3.getCell('A2').value = archDesc;
 
         if (Array.isArray(networkFlows) && networkFlows.length > 0) {
+          const startRow = 48; 
           networkFlows.forEach((flow, idx) => {
-            const rowNum = 73 + idx;
+            const rowNum = startRow + idx;
             sheet3.getCell(`B${rowNum}`).value = flow.source || '';
             sheet3.getCell(`C${rowNum}`).value = flow.destination || '';
             sheet3.getCell(`D${rowNum}`).value = flow.service || '';
             sheet3.getCell(`E${rowNum}`).value = flow.port || '';
-            sheet3.getCell(`F${rowNum}`).value = flow.flow_type || '';
+            sheet3.getCell(`F${rowNum}`).value = flow.flow_type || flow.type_flux || '';
             sheet3.getCell(`G${rowNum}`).value = flow.description || '/';
           });
         }
       }
 
+      // -----------------------------------------------------------------------
       // ONGLET 4 : Suivi des Non conformités
-      let sheet4 = workbook.getWorksheet('Suivie des Non conformités') || 
+      // -----------------------------------------------------------------------
+      const sheet4 = workbook.getWorksheet('Suivie des Non conformités') || 
                      workbook.getWorksheet('Suivi des Non conformités') || 
                      workbook.getWorksheet(4);
       if (sheet4) {
-        sheet4.getCell('B2').value = dnsSiteWeb;
-        sheet4.getCell('B3').value = ipPublique;
-        sheet4.getCell('B4').value = ipInterne;
-        sheet4.getCell('B6').value = publication;
-        sheet4.getCell('B7').value = dateDerniereMaj;
+        sheet4.getCell('C2').value = dnsSiteWeb;
+        sheet4.getCell('C3').value = ipPublique;
+        sheet4.getCell('C4').value = ipInterne;
+        sheet4.getCell('C6').value = publication;
+        sheet4.getCell('C7').value = dateDerniereMaj;
 
         if (Array.isArray(securityCompliance) && securityCompliance.length > 0) {
           securityCompliance.forEach((ctrl, idx) => {
             const rowNum = 10 + idx;
             const status = ctrl.status || 'En attente';
-            const comments = ctrl.comments || '/';
+            const comments = ctrl.comments || ctrl.commentaires || '/';
 
             sheet4.getCell(`B${rowNum}`).value = status;
             sheet4.getCell(`C${rowNum}`).value = comments;
@@ -176,9 +197,7 @@ export const exportVMToExcel = async (vmData) => {
         }
       }
     } else {
-      // -----------------------------------------------------------------------
       // MODE 2: Dynamic workbook construction fallback
-      // -----------------------------------------------------------------------
       workbook.creator = 'Sonatrach TRC';
       workbook.created = new Date();
 
@@ -248,7 +267,7 @@ export const exportVMToExcel = async (vmData) => {
       softwareStack.forEach((sw) => {
         const isPresent = sw.exists !== undefined ? sw.exists : sw.is_present;
         const existsText = isPresent ? 'Oui' : 'Non';
-        const r = sheet2.addRow([sw.software_name, existsText, sw.version || '—']);
+        const r = sheet2.addRow([sw.software_name || sw.name, existsText, sw.version || '—']);
         
         r.getCell(1).border = thinBorder;
         r.getCell(2).border = thinBorder;
@@ -289,7 +308,7 @@ export const exportVMToExcel = async (vmData) => {
           flow.destination,
           flow.service,
           flow.port,
-          flow.flow_type,
+          flow.flow_type || flow.type_flux,
           flow.description || '/'
         ]);
         r.eachCell((cell) => { cell.border = thinBorder; });
@@ -331,7 +350,7 @@ export const exportVMToExcel = async (vmData) => {
 
       securityCompliance.forEach((ctrl) => {
         const status = ctrl.status || 'En attente';
-        const r = sheet4.addRow([ctrl.control_name, status, ctrl.comments || '/']);
+        const r = sheet4.addRow([ctrl.control_name, status, ctrl.comments || ctrl.commentaires || '/']);
         r.getCell(1).border = thinBorder;
         r.getCell(2).border = thinBorder;
         r.getCell(3).border = thinBorder;
@@ -349,7 +368,7 @@ export const exportVMToExcel = async (vmData) => {
     // Generate output file
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const filename = `formulaire_création_VM_${ipAddr || appName || 'export'}.xlsx`;
+    const filename = `formulaire_création_VM_${appName || ipAddr || 'export'}.xlsx`;
     saveAs(blob, filename);
 
   } catch (error) {
