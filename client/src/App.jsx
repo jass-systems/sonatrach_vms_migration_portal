@@ -10,10 +10,10 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      {/* Barre de navigation principale avec z-index ajusté (z-10) */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-slate-50 flex flex-col w-full">
+      {/* Barre de navigation pleine largeur */}
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm w-full">
+        <div className="w-full px-6 lg:px-10">
           <div className="flex justify-between items-center h-16">
             
             {/* Logo & Titre */}
@@ -48,8 +48,8 @@ export default function App() {
         </div>
       </header>
 
-      {/* Contenu principal */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+      {/* Contenu principal pleine largeur */}
+      <main className="flex-1 w-full px-6 lg:px-10 py-6">
         <Dashboard />
       </main>
     </div>

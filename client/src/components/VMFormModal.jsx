@@ -1,410 +1,272 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import ExcelJS from 'exceljs';
-import { saveAs } from 'file-saver';
+import { exportVMToExcel } from '../utils/exportVMExcel';
 
-// =========================================================================
-// FONCTION D'EXPORTATION EXCEL DE LA MACHINE VIRTUELLE (INDIVIDUELLE)
-// =========================================================================
-const exportVMToExcel = async (data) => {
-  const workbook = new ExcelJS.Workbook();
-  workbook.creator = 'Sonatrach TRC';
-  workbook.created = new Date();
+export { exportVMToExcel };
 
-  // Palette de couleurs Sonatrach TRC
-  const COLORS = {
-    HEADER_BG: '1E293B',     // Bleu nuit / Slate-800
-    HEADER_TEXT: 'FFFFFF',   // Blanc
-    ORANGE_TRC: 'D97706',    // Orange TRC / Amber-600
-    GREEN_BG: 'D1FAE5',      // Vert clair (Oui / Conforme)
-    GREEN_TEXT: '047857',    // Vert foncé
-    RED_BG: 'FEE2E2',        // Rouge clair (Non validé)
-    RED_TEXT: 'B91C1C',      // Rouge foncé
-    GRAY_BG: 'F8FAFC'        // Gris neutre
-  };
+const DEFAULT_SOFTWARE_STACK = [
+  { software_name: 'Apache Struts', exists: false, version: '' },
+  { software_name: 'Apache Tomcat', exists: false, version: '' },
+  { software_name: 'Apache/NCSA HTTP Server', exists: false, version: '' },
+  { software_name: 'ASP', exists: false, version: '' },
+  { software_name: 'ASP.NET', exists: false, version: '' },
+  { software_name: 'BEA Systems WebLogic Server', exists: false, version: '' },
+  { software_name: 'CGI', exists: false, version: '' },
+  { software_name: 'Cisco', exists: false, version: '' },
+  { software_name: 'Citrix', exists: false, version: '' },
+  { software_name: 'Django', exists: false, version: '' },
+  { software_name: 'Elasticsearch', exists: false, version: '' },
+  { software_name: 'Front Page Server Extensions (FPSE)', exists: false, version: '' },
+  { software_name: 'IBM DB2', exists: false, version: '' },
+  { software_name: 'IIS', exists: false, version: '' },
+  { software_name: 'Java Servlets/JSP', exists: false, version: '' },
+  { software_name: 'Java', exists: false, version: '' },
+  { software_name: 'Js', exists: false, version: '' },
+  { software_name: 'JavaServer Faces (JSF)', exists: false, version: '' },
+  { software_name: 'JBoss', exists: false, version: '' },
+  { software_name: 'Jetty', exists: false, version: '' },
+  { software_name: 'Joomla', exists: false, version: '' },
+  { software_name: 'jQuery', exists: false, version: '' },
+  { software_name: 'Lotus Domino', exists: false, version: '' },
+  { software_name: 'Macromedia ColdFusion', exists: false, version: '' },
+  { software_name: 'Macromedia JRun', exists: false, version: '' },
+  { software_name: 'Microsoft SQL Server', exists: false, version: '' },
+  { software_name: 'Microsoft Windows', exists: true, version: 'Server 2022' },
+  { software_name: 'MongoDB', exists: false, version: '' },
+  { software_name: 'MySQL', exists: false, version: '' },
+  { software_name: 'Node.js', exists: true, version: '18.x' },
+  { software_name: 'Novell', exists: false, version: '' },
+  { software_name: 'Oracle', exists: true, version: '19c' },
+  { software_name: 'Outlook Web Access', exists: false, version: '' },
+  { software_name: 'PHP', exists: false, version: '' },
+  { software_name: 'PostgreSQL', exists: false, version: '' },
+  { software_name: 'Proxy Servers', exists: false, version: '' },
+  { software_name: 'Ruby', exists: false, version: '' },
+  { software_name: 'SSI (Server Side Includes)', exists: false, version: '' },
+  { software_name: 'Sybase/ASE', exists: false, version: '' },
+  { software_name: 'WebDAV', exists: false, version: '' },
+  { software_name: 'WordPress', exists: false, version: '' },
+  { software_name: 'C/C++', exists: false, version: '' },
+  { software_name: 'Python', exists: true, version: '3.10' },
+  { software_name: 'Sharepoint', exists: false, version: '' },
+  { software_name: 'XML', exists: false, version: '' },
+  { software_name: 'Ngnix (web server & revers proxy)', exists: true, version: '1.24' },
+  { software_name: 'WSL (Ubuntu server 24.04)', exists: true, version: '24.04' }
+];
 
-  const thinBorder = {
-    top: { style: 'thin', color: { argb: 'CBD5E1' } },
-    left: { style: 'thin', color: { argb: 'CBD5E1' } },
-    bottom: { style: 'thin', color: { argb: 'CBD5E1' } },
-    right: { style: 'thin', color: { argb: 'CBD5E1' } }
-  };
+const DEFAULT_NETWORK_FLOWS = [
+  {
+    id: 'flow-1',
+    source: '10.10.0.0/16 (UTILISATEURS)',
+    destination: '10.118.100.64',
+    service: 'TCP/443',
+    port: '443',
+    flow_type: 'Flux applicatif Web',
+    description: 'Trafic Web sécurisé HTTPS (Flux applicatif Web)'
+  },
+  {
+    id: 'flow-2',
+    source: '10.5.1.0/24 (ADMINS)',
+    destination: '10.118.100.64',
+    service: 'TCP/22',
+    port: '22',
+    flow_type: "Flux d'administration",
+    description: "Accès d'administration sécurisé SSH"
+  }
+];
 
-  // -------------------------------------------------------------------------
-  // ONGLET 1 : Principale
-  // -------------------------------------------------------------------------
-  const sheet1 = workbook.addWorksheet('Principale');
-  sheet1.columns = [{ width: 35 }, { width: 50 }];
+const DEFAULT_SECURITY_COMPLIANCE = [
+  { id: 1, control_name: 'Vérification de la mise en place du Service à publier dans la Zone DMZ', status: 'Non validé', comments: '/' },
+  { id: 2, control_name: "Vérification de l'installation de l'Antivirus (avec une base de signature à jour)", status: 'Conforme (Actif & À jour)', comments: '' },
+  { id: 3, control_name: "Vérification de l'utilisation de certificat TLS", status: 'Conforme (Certificat TLS actif)', comments: '' },
+  { id: 4, control_name: "Réalisation d'un scan de vulnérabilités authentifié", status: 'En attente', comments: '' },
+  { id: 5, control_name: 'Réalisation d\'un scan de Vulnérabilités Web', status: 'En attente', comments: '' },
+  { id: 6, control_name: 'Scan de Conformité des configurations de sécurité appliquées', status: 'Conforme', comments: '' },
+  { id: 7, control_name: "Revue de Code source de l'application", status: 'Conforme', comments: '' },
+  { id: 8, control_name: "Vérification de l'application de la politique du moindre privilège pour chaque type d'utilisateur ayant accès au service.", status: 'Conforme (PoLP respecté)', comments: '' }
+];
 
-  const titleRow1 = sheet1.addRow(['Formulaire Technique de Publication et de Mise à Disposition des Ressources']);
-  titleRow1.font = { bold: true, color: { argb: COLORS.HEADER_TEXT }, size: 11 };
-  titleRow1.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.HEADER_BG } };
-  sheet1.mergeCells('A1:B1');
-  titleRow1.alignment = { vertical: 'middle', horizontal: 'center' };
+const getInitialStack = (data) => {
+  const rawStack = data?.softwareStack || data?.software_stack;
+  if (!rawStack?.length) return DEFAULT_SOFTWARE_STACK;
 
-  sheet1.addRow([]); // Espace
-
-  const infoData1 = [
-    ['Pôle (*)', data.structureInfo?.pole || 'ALGER'],
-    ['Structure (*)', data.structureInfo?.structure || 'DTI'],
-    ['Responsable de la Structure (*)', data.structureInfo?.responsable_structure || '/'],
-    ['Responsable du service à publier (*)', data.structureInfo?.responsable_service || 'INTRANET'],
-    ['Contact (*)', data.structureInfo?.contact || '']
-  ];
-
-  infoData1.forEach(([label, val]) => {
-    const r = sheet1.addRow([label, val]);
-    r.getCell(1).font = { bold: true };
-    r.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.GRAY_BG } };
-    r.getCell(1).border = thinBorder;
-    r.getCell(2).border = thinBorder;
-  });
-
-  // -------------------------------------------------------------------------
-  // ONGLET 2 : Publication VM
-  // -------------------------------------------------------------------------
-  const sheet2 = workbook.addWorksheet('Publication VM');
-  sheet2.columns = [{ width: 38 }, { width: 22 }, { width: 25 }];
-
-  const h2_1 = sheet2.addRow(['Formulaire Technique de Publication', '', '']);
-  h2_1.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.HEADER_BG } };
-  h2_1.font = { bold: true, color: { argb: COLORS.HEADER_TEXT } };
-  sheet2.mergeCells('A1:C1');
-
-  const pubData = [
-    ['Type de publication', data.formPublication?.publication_type || 'Intranet'],
-    ['Population exploitant service', data.formPublication?.target_population || ''],
-    ['Nom de l\'application (VM)', data.formPublication?.app_name || ''],
-    ['Entrée DNS', data.formPublication?.dns_entry || 'N/A'],
-    ['Adresse IP', data.formPublication?.ip_address || ''],
-    ['Port', data.formPublication?.port || '443'],
-    ['OS Serveur', data.formPublication?.os_server || '']
-  ];
-
-  pubData.forEach(([label, val]) => {
-    const r = sheet2.addRow([label, val, '']);
-    r.getCell(1).font = { bold: true };
-    r.getCell(1).border = thinBorder;
-    r.getCell(2).border = thinBorder;
-  });
-
-  sheet2.addRow([]); // Espace
-
-  const stackHeader = sheet2.addRow(['Configuration Software', 'Existance', 'Version']);
-  stackHeader.eachCell((cell) => {
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.ORANGE_TRC } };
-    cell.font = { bold: true, color: { argb: COLORS.HEADER_TEXT } };
-    cell.border = thinBorder;
-  });
-
-  (data.softwareStack || []).forEach((sw) => {
-    const existsText = sw.exists ? 'Oui' : 'Non';
-    const r = sheet2.addRow([sw.software_name, existsText, sw.version || '—']);
-    
-    r.getCell(1).border = thinBorder;
-    r.getCell(2).border = thinBorder;
-    r.getCell(3).border = thinBorder;
-
-    if (sw.exists) {
-      r.getCell(2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.GREEN_BG } };
-      r.getCell(2).font = { bold: true, color: { argb: COLORS.GREEN_TEXT } };
+  return DEFAULT_SOFTWARE_STACK.map(defaultItem => {
+    const found = rawStack.find(
+      item => (item.software_name || item.name || '').trim().toLowerCase() === defaultItem.software_name.trim().toLowerCase()
+    );
+    if (found) {
+      return {
+        software_name: defaultItem.software_name,
+        exists: found.exists !== undefined ? Boolean(found.exists) : Boolean(found.is_present),
+        version: found.version || ''
+      };
     }
+    return defaultItem;
   });
-
-  // -------------------------------------------------------------------------
-  // ONGLET 3 : Informations liées au service
-  // -------------------------------------------------------------------------
-  const sheet3 = workbook.addWorksheet('Informations liées au service');
-  sheet3.columns = [{ width: 25 }, { width: 20 }, { width: 15 }, { width: 12 }, { width: 25 }, { width: 35 }];
-
-  const archHeader = sheet3.addRow(['Architecture du service', '', '', '', '', '']);
-  archHeader.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.HEADER_BG } };
-  archHeader.font = { bold: true, color: { argb: COLORS.HEADER_TEXT } };
-  sheet3.mergeCells('A1:F1');
-
-  const archDescRow = sheet3.addRow([data.architecture_desc || '']);
-  sheet3.mergeCells('A2:F2');
-  archDescRow.getCell(1).border = thinBorder;
-
-  sheet3.addRow([]); // Espace
-
-  const flowHeader = sheet3.addRow(['Source', 'Destination', 'Service', 'Ports', 'Type de flux', 'Description']);
-  flowHeader.eachCell((cell) => {
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.ORANGE_TRC } };
-    cell.font = { bold: true, color: { argb: COLORS.HEADER_TEXT } };
-    cell.border = thinBorder;
-    cell.alignment = { horizontal: 'center' };
-  });
-
-  (data.networkFlows || []).forEach((flow) => {
-    const r = sheet3.addRow([
-      flow.source,
-      flow.destination,
-      flow.service,
-      flow.port,
-      flow.flow_type,
-      flow.description || '/'
-    ]);
-    r.eachCell((cell) => { cell.border = thinBorder; });
-  });
-
-  // -------------------------------------------------------------------------
-  // ONGLET 4 : Suivie des Non conformités
-  // -------------------------------------------------------------------------
-  const sheet4 = workbook.addWorksheet('Suivie des Non conformités');
-  sheet4.columns = [{ width: 60 }, { width: 30 }, { width: 35 }];
-
-  const secHeader = sheet4.addRow(['Service Publié (Paramètres de Sécurité SI)', '', '']);
-  secHeader.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.HEADER_BG } };
-  secHeader.font = { bold: true, color: { argb: COLORS.HEADER_TEXT } };
-  sheet4.mergeCells('A1:C1');
-
-  const secParams = [
-    ['Entrée DNS (site web)', data.securityParams?.dns_site_web || 'N/A'],
-    ['Adresse IP Publique', data.securityParams?.ip_publique || 'N/A'],
-    ['Adresse IP Interne (*)', data.securityParams?.ip_interne || ''],
-    ['Adresse IP Virtuelle F5', data.securityParams?.ip_virtuelle_f5 || 'N/A'],
-    ['Publication (*)', data.securityParams?.publication || 'DEV'],
-    ['Date / Heure de la dernière Mise à jour', data.securityParams?.date_derniere_maj || '']
-  ];
-
-  secParams.forEach(([k, v]) => {
-    const r = sheet4.addRow([k, v, '']);
-    r.getCell(1).font = { bold: true };
-    r.getCell(1).border = thinBorder;
-    r.getCell(2).border = thinBorder;
-  });
-
-  sheet4.addRow([]); // Espace
-
-  const ctrlHeader = sheet4.addRow(['Contrôles Sécurité SI', 'État et Conformité', 'Commentaires']);
-  ctrlHeader.eachCell((cell) => {
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.ORANGE_TRC } };
-    cell.font = { bold: true, color: { argb: COLORS.HEADER_TEXT } };
-    cell.border = thinBorder;
-  });
-
-  (data.securityCompliance || []).forEach((ctrl) => {
-    const r = sheet4.addRow([ctrl.control_name, ctrl.status, ctrl.comments || '/']);
-    r.getCell(1).border = thinBorder;
-    r.getCell(2).border = thinBorder;
-    r.getCell(3).border = thinBorder;
-
-    if (ctrl.status.startsWith('Conforme')) {
-      r.getCell(2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.GREEN_BG } };
-      r.getCell(2).font = { bold: true, color: { argb: COLORS.GREEN_TEXT } };
-    } else if (ctrl.status === 'Non validé') {
-      r.getCell(2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.RED_BG } };
-      r.getCell(2).font = { bold: true, color: { argb: COLORS.RED_TEXT } };
-    }
-  });
-
-  // Génération et Téléchargement du fichier .xlsx
-  const buffer = await workbook.xlsx.writeBuffer();
-  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-  const ipName = data.formPublication?.ip_address || data.formPublication?.app_name || 'vm';
-  const filename = `formulaire_création_VM_${ipName}.xlsx`;
-  saveAs(blob, filename);
 };
 
-// =========================================================================
-// COMPOSANT MODAL DE GESTION DE VM
-// =========================================================================
+const getInitialFlows = (data) => {
+  const source = data?.networkFlows || data?.network_flows || DEFAULT_NETWORK_FLOWS;
+  return source.map((flow, idx) => ({ ...flow, id: flow.id || `flow-${Date.now()}-${idx}` }));
+};
+
+const getInitialSecurityParams = (data) => ({
+  dns_site_web: data?.securityParams?.dns_site_web || data?.security_params?.dns_site_web || data?.dns_entry || 'N/A',
+  ip_publique: data?.securityParams?.ip_publique || data?.security_params?.ip_publique || data?.public_ip || 'N/A',
+  ip_interne: data?.securityParams?.ip_interne || data?.security_params?.ip_interne || data?.ip_address || '10.118.100.64',
+  ip_virtuelle_f5: data?.securityParams?.ip_virtuelle_f5 || data?.security_params?.ip_virtuelle_f5 || data?.f5_virtual_ip || 'N/A',
+  publication: data?.securityParams?.publication || data?.security_params?.publication || 'DEV',
+  date_derniere_maj: data?.securityParams?.date_derniere_maj || data?.security_params?.date_derniere_maj || new Date().toISOString().slice(0, 16)
+});
+
+const getInitialCompliance = (data) => {
+  return data?.securityCompliance || data?.security_compliance || DEFAULT_SECURITY_COMPLIANCE;
+};
+
 export default function VMFormModal({ requestId, initialData, onClose, onSuccess }) {
   const [activeTab, setActiveTab] = useState(1);
   const [loading, setLoading] = useState(false);
 
-  // Initialisation des états avec initialData s'il existe
   const [structureInfo, setStructureInfo] = useState({
-    pole: initialData?.structureInfo?.pole || 'ALGER',
-    structure: initialData?.structureInfo?.structure || 'DTI',
-    responsable_structure: initialData?.structureInfo?.responsable_structure || '/',
-    responsable_service: initialData?.structureInfo?.responsable_service || 'INTRANET',
-    contact: initialData?.structureInfo?.contact || 'younes samia, berkat siham, aloui adel'
+    pole: initialData?.structureInfo?.pole || initialData?.pole || 'ALGER',
+    structure: initialData?.structureInfo?.structure || initialData?.structure || 'DTI',
+    responsable_structure: initialData?.structureInfo?.responsable_structure || initialData?.responsable_structure || '/',
+    responsable_service: initialData?.structureInfo?.responsable_service || initialData?.responsable_service || 'INTRANET',
+    contact: initialData?.structureInfo?.contact || initialData?.contact || 'younes samia, berkat siham, aloui adel'
   });
 
   const [formPublication, setFormPublication] = useState({
-    publication_type: initialData?.formPublication?.publication_type || 'Intranet',
-    target_population: initialData?.formPublication?.target_population || "Agents de la Direction EXP ainsi que les agents d'exploitation des 9 Directions Régionales.",
+    publication_type: initialData?.formPublication?.publication_type || initialData?.publication_type || 'Intranet',
+    target_population: initialData?.formPublication?.target_population || initialData?.target_population || "Agents de la Direction EXP ainsi que les agents d'exploitation des 9 Directions Régionales.",
     app_name: initialData?.formPublication?.app_name || initialData?.app_name || 'vm_app_dev',
-    dns_entry: initialData?.formPublication?.dns_entry || 'N/A',
+    dns_entry: initialData?.formPublication?.dns_entry || initialData?.dns_entry || 'N/A',
     ip_address: initialData?.formPublication?.ip_address || initialData?.ip_address || '10.118.100.64',
-    port: initialData?.formPublication?.port || '443',
-    os_server: initialData?.formPublication?.os_server || 'Windows Server 2022'
+    port: initialData?.formPublication?.port || initialData?.port || '443',
+    os_server: initialData?.formPublication?.os_server || initialData?.os_server || 'Windows Server 2022'
   });
 
-  const defaultStack = [
-    { software_name: 'Apache Struts', exists: false, version: '' },
-    { software_name: 'Apache Tomcat', exists: false, version: '' },
-    { software_name: 'Apache/NCSA HTTP Server', exists: false, version: '' },
-    { software_name: 'ASP', exists: false, version: '' },
-    { software_name: 'ASP.NET', exists: false, version: '' },
-    { software_name: 'BEA Systems WebLogic Server', exists: false, version: '' },
-    { software_name: 'CGI', exists: false, version: '' },
-    { software_name: 'Cisco', exists: false, version: '' },
-    { software_name: 'Citrix', exists: false, version: '' },
-    { software_name: 'Django', exists: false, version: '' },
-    { software_name: 'Elasticsearch', exists: false, version: '' },
-    { software_name: 'Front Page Server Extensions (FPSE)', exists: false, version: '' },
-    { software_name: 'IBM DB2', exists: false, version: '' },
-    { software_name: 'IIS', exists: false, version: '' },
-    { software_name: 'Java Servlets/JSP', exists: false, version: '' },
-    { software_name: 'Java', exists: false, version: '' },
-    { software_name: 'Js', exists: false, version: '' },
-    { software_name: 'JavaServer Faces (JSF)', exists: false, version: '' },
-    { software_name: 'JBoss', exists: false, version: '' },
-    { software_name: 'Jetty', exists: false, version: '' },
-    { software_name: 'Joomla', exists: false, version: '' },
-    { software_name: 'jQuery', exists: false, version: '' },
-    { software_name: 'Lotus Domino', exists: false, version: '' },
-    { software_name: 'Macromedia ColdFusion', exists: false, version: '' },
-    { software_name: 'Macromedia JRun', exists: false, version: '' },
-    { software_name: 'Microsoft SQL Server', exists: false, version: '' },
-    { software_name: 'Microsoft Windows', exists: true, version: 'Server 2022' },
-    { software_name: 'MongoDB', exists: false, version: '' },
-    { software_name: 'MySQL', exists: false, version: '' },
-    { software_name: 'Node.js', exists: true, version: '18.x' },
-    { software_name: 'Novell', exists: false, version: '' },
-    { software_name: 'Oracle', exists: true, version: '19c' },
-    { software_name: 'Outlook Web Access', exists: false, version: '' },
-    { software_name: 'PHP', exists: false, version: '' },
-    { software_name: 'PostgreSQL', exists: false, version: '' },
-    { software_name: 'Proxy Servers', exists: false, version: '' },
-    { software_name: 'Ruby', exists: false, version: '' },
-    { software_name: 'SSI (Server Side Includes)', exists: false, version: '' },
-    { software_name: 'Sybase/ASE', exists: false, version: '' },
-    { software_name: 'WebDAV', exists: false, version: '' },
-    { software_name: 'WordPress', exists: false, version: '' },
-    { software_name: 'C/C++', exists: false, version: '' },
-    { software_name: 'Python', exists: true, version: '3.10' },
-    { software_name: 'Sharepoint', exists: false, version: '' },
-    { software_name: 'XML', exists: false, version: '' },
-    { software_name: 'Ngnix (web server & revers proxy)', exists: true, version: '1.24' },
-    { software_name: 'WSL (Ubuntu server 24.04)', exists: true, version: '24.04' }
-  ];
-
-  const [softwareStack, setSoftwareStack] = useState(initialData?.softwareStack || defaultStack);
-
+  const [softwareStack, setSoftwareStack] = useState(() => getInitialStack(initialData));
   const [architectureDesc, setArchitectureDesc] = useState(
-    initialData?.architecture_desc || 'Architecture Web / App / BDD : Reverse Proxy Nginx, API Python/Node.js et base de données Oracle.'
+    initialData?.architecture_desc || initialData?.architectureDesc || 'Architecture Web / App / BDD : Reverse Proxy Nginx, API Python/Node.js et base de données Oracle.'
   );
+  const [networkFlows, setNetworkFlows] = useState(() => getInitialFlows(initialData));
+  const [securityParams, setSecurityParams] = useState(() => getInitialSecurityParams(initialData));
+  const [securityCompliance, setSecurityCompliance] = useState(() => getInitialCompliance(initialData));
 
-  const [networkFlows, setNetworkFlows] = useState(
-    initialData?.networkFlows || [
-      {
-        source: '10.10.0.0/16 (UTILISATEURS)',
-        destination: '10.118.100.64',
-        service: 'TCP/443',
-        port: '443',
-        flow_type: 'Flux applicatif Web',
-        description: 'Trafic Web sécurisé HTTPS (Flux applicatif Web)'
-      },
-      {
-        source: '10.5.1.0/24 (ADMINS)',
-        destination: '10.118.100.64',
-        service: 'TCP/22',
-        port: '22',
-        flow_type: "Flux d'administration",
-        description: "Accès d'administration sécurisé SSH"
-      }
-    ]
-  );
+  // Synchronization on initialData prop updates
+  useEffect(() => {
+    if (!initialData) return;
+
+    setStructureInfo({
+      pole: initialData.structureInfo?.pole || initialData.pole || 'ALGER',
+      structure: initialData.structureInfo?.structure || initialData.structure || 'DTI',
+      responsable_structure: initialData.structureInfo?.responsable_structure || initialData.responsable_structure || '/',
+      responsable_service: initialData.structureInfo?.responsable_service || initialData.responsable_service || 'INTRANET',
+      contact: initialData.structureInfo?.contact || initialData.contact || 'younes samia, berkat siham, aloui adel'
+    });
+
+    setFormPublication({
+      publication_type: initialData.formPublication?.publication_type || initialData.publication_type || 'Intranet',
+      target_population: initialData.formPublication?.target_population || initialData.target_population || "Agents de la Direction EXP ainsi que les agents d'exploitation des 9 Directions Régionales.",
+      app_name: initialData.formPublication?.app_name || initialData.app_name || 'vm_app_dev',
+      dns_entry: initialData.formPublication?.dns_entry || initialData.dns_entry || 'N/A',
+      ip_address: initialData.formPublication?.ip_address || initialData.ip_address || '10.118.100.64',
+      port: initialData.formPublication?.port || initialData.port || '443',
+      os_server: initialData.formPublication?.os_server || initialData.os_server || 'Windows Server 2022'
+    });
+
+    setSoftwareStack(getInitialStack(initialData));
+    setArchitectureDesc(
+      initialData.architecture_desc || initialData.architectureDesc || 'Architecture Web / App / BDD : Reverse Proxy Nginx, API Python/Node.js et base de données Oracle.'
+    );
+    setNetworkFlows(getInitialFlows(initialData));
+    setSecurityParams(getInitialSecurityParams(initialData));
+    setSecurityCompliance(getInitialCompliance(initialData));
+  }, [initialData]);
 
   const addNetworkFlow = () => {
-    setNetworkFlows([
-      ...networkFlows,
-      { source: '', destination: '', service: 'TCP/80', port: '80', flow_type: 'Flux applicatif Web', description: '' }
+    setNetworkFlows(prev => [
+      ...prev,
+      { id: `flow-${Date.now()}`, source: '', destination: '', service: 'TCP/80', port: '80', flow_type: 'Flux applicatif Web', description: '' }
     ]);
   };
 
-  const removeNetworkFlow = (idx) => {
-    setNetworkFlows(networkFlows.filter((_, i) => i !== idx));
+  const removeNetworkFlow = (id) => {
+    setNetworkFlows(prev => prev.filter((flow) => flow.id !== id));
   };
 
-  const [securityParams, setSecurityParams] = useState(
-    initialData?.securityParams || {
-      dns_site_web: 'N/A',
-      ip_publique: 'N/A',
-      ip_interne: '10.118.100.64',
-      ip_virtuelle_f5: 'N/A',
-      publication: 'DEV',
-      date_derniere_maj: '2026-09-06T09:04'
-    }
-  );
+  const updateNetworkFlow = (id, field, value) => {
+    setNetworkFlows(prev => prev.map(flow => (flow.id === id ? { ...flow, [field]: value } : flow)));
+  };
 
-  const [securityCompliance, setSecurityCompliance] = useState(
-    initialData?.securityCompliance || [
-      { id: 1, control_name: 'Vérification de la mise en place du Service à publier dans la Zone DMZ', status: 'Non validé', comments: '/' },
-      { id: 2, control_name: "Vérification de l'installation de l'Antivirus (avec une base de signature à jour)", status: 'Conforme (Actif & À jour)', comments: '' },
-      { id: 3, control_name: "Vérification de l'utilisation de certificat TLS", status: 'Conforme (Certificat TLS actif)', comments: '' },
-      { id: 4, control_name: "Réalisation d'un scan de vulnérabilités authentifié", status: 'En attente', comments: '' },
-      { id: 5, control_name: 'Réalisation d\'un scan de Vulnérabilités Web', status: 'En attente', comments: '' },
-      { id: 6, control_name: 'Scan de Conformité des configurations de sécurité appliquées', status: 'Conforme', comments: '' },
-      { id: 7, control_name: "Revue de Code source de l'application", status: 'Conforme', comments: '' },
-      { id: 8, control_name: "Vérification de l'application de la politique du moindre privilège pour chaque type d'utilisateur ayant accès au service.", status: 'Conforme (PoLP respecté)', comments: '' }
-    ]
-  );
+  const getPayload = () => ({
+    ...structureInfo,
+    ...formPublication,
+    structureInfo,
+    formPublication,
+    softwareStack,
+    networkFlows,
+    securityCompliance,
+    securityParams,
+    architecture_desc: architectureDesc,
+    app_name: formPublication.app_name,
+    ip_address: formPublication.ip_address,
+    port: formPublication.port,
+    os_server: formPublication.os_server
+  });
 
-  // Soumission au backend (Création ou Édition)
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
-    const payload = {
-      structureInfo,
-      formPublication,
-      softwareStack,
-      networkFlows,
-      securityCompliance,
-      securityParams,
-      architecture_desc: architectureDesc
-    };
+    const vmId = initialData?.id || initialData?._id || initialData?.vm_id;
+    const isEdit = Boolean(vmId);
+    const payload = getPayload();
 
     try {
-      const isEdit = Boolean(initialData?.id);
       const url = isEdit
-        ? `http://localhost:5000/api/vms/${initialData.id}`
+        ? `http://localhost:5000/api/vms/${vmId}`
         : `http://localhost:5000/api/migrations/${requestId}/vms`;
 
-      const method = isEdit ? 'PUT' : 'POST';
-
       const res = await fetch(url, {
-        method,
+        method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
 
-      if (res.ok) {
-        if (onSuccess) onSuccess();
-        onClose();
-      } else {
-        alert("Erreur lors de l'enregistrement de la VM");
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || `Erreur serveur: ${res.status}`);
       }
+
+      const responseData = await res.json().catch(() => ({}));
+      const returnedVm = responseData.vm || responseData || {};
+
+      const completeVmData = {
+        ...initialData,
+        ...payload,
+        ...returnedVm,
+        softwareStack: returnedVm.softwareStack || returnedVm.software_stack || payload.softwareStack,
+        networkFlows: returnedVm.networkFlows || returnedVm.network_flows || payload.networkFlows,
+        securityCompliance: returnedVm.securityCompliance || returnedVm.security_compliance || payload.securityCompliance,
+        securityParams: returnedVm.securityParams || returnedVm.security_params || payload.securityParams,
+      };
+
+      if (onSuccess) onSuccess(completeVmData);
+      onClose();
     } catch (err) {
-      console.error(err);
-      alert("Une erreur réseau s'est produite.");
+      console.error('Erreur lors de la modification de la VM :', err);
+      alert(`Impossible d'enregistrer les modifications : ${err.message}`);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleExport = () => {
-    exportVMToExcel({
-      structureInfo,
-      formPublication,
-      softwareStack,
-      networkFlows,
-      securityCompliance,
-      securityParams,
-      architecture_desc: architectureDesc
-    });
   };
 
   return createPortal(
     <div className="fixed inset-0 bg-black/80 flex justify-center items-center z-[9999] p-4 backdrop-blur-sm overflow-y-auto">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl border border-slate-200 overflow-hidden flex flex-col max-h-[88vh] my-auto">
         
-        {/* Entête Modal */}
+        {/* Modal Header */}
         <div className="bg-slate-900 text-white px-6 py-4 flex justify-between items-center border-b border-slate-800 shrink-0">
           <div>
             <h3 className="font-bold text-base flex items-center gap-2">
@@ -423,7 +285,7 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
           </button>
         </div>
 
-        {/* Navigation des 4 Onglets */}
+        {/* Tab Navigation */}
         <div className="flex border-b bg-slate-100 text-xs font-semibold overflow-x-auto shrink-0">
           {[
             { id: 1, title: 'Principale', desc: 'Demandeur TRC' },
@@ -447,10 +309,10 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
           ))}
         </div>
 
-        {/* Corps du Formulaire */}
+        {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto flex-1 space-y-6 text-xs bg-slate-50/50">
           
-          {/* ONGLET 1 : PRINCIPALE */}
+          {/* TAB 1 : PRINCIPALE */}
           {activeTab === 1 && (
             <div className="space-y-4">
               <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
@@ -532,18 +394,10 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
                   </div>
                 </div>
               </div>
-
-              <div className="bg-amber-50/70 border border-amber-300 p-4 rounded-xl text-slate-700 space-y-2">
-                <p className="font-bold text-amber-900 text-xs">(*) obligatoire</p>
-                <div className="text-[11px] space-y-1">
-                  <p>• Les onglets <strong>"Informations liées au service"</strong> sont à renseigner par la Structure demanderesse.</p>
-                  <p>• L'onglet <strong>"Suivi des non conformités"</strong> est à renseigner par la direction Sécurité SI.</p>
-                </div>
-              </div>
             </div>
           )}
 
-          {/* ONGLET 2 : PUBLICATION VM */}
+          {/* TAB 2 : PUBLICATION VM */}
           {activeTab === 2 && (
             <div className="space-y-5">
               <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
@@ -657,7 +511,7 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-80 overflow-y-auto pr-1">
                   {softwareStack.map((sw, idx) => (
-                    <div key={sw.software_name || idx} className="flex items-center justify-between bg-slate-50 p-2.5 rounded-lg border border-slate-200 gap-2">
+                    <div key={sw.software_name || `sw-${idx}`} className="flex items-center justify-between bg-slate-50 p-2.5 rounded-lg border border-slate-200 gap-2">
                       <span className="font-medium text-slate-800 text-xs truncate w-1/2" title={sw.software_name}>
                         {sw.software_name}
                       </span>
@@ -669,10 +523,14 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
                           }`}
                           value={sw.exists ? 'Oui' : 'Non'}
                           onChange={e => {
-                            const u = [...softwareStack];
-                            u[idx].exists = e.target.value === 'Oui';
-                            if (e.target.value === 'Non') u[idx].version = '';
-                            setSoftwareStack(u);
+                            const exists = e.target.value === 'Oui';
+                            setSoftwareStack(prev =>
+                              prev.map((item, i) =>
+                                i === idx
+                                  ? { ...item, exists, version: exists ? item.version : '' }
+                                  : item
+                              )
+                            );
                           }}
                         >
                           <option value="Non">Non</option>
@@ -686,9 +544,12 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
                           className={`border p-1 rounded text-xs w-24 ${!sw.exists ? 'bg-slate-100 text-slate-400' : 'bg-white'}`}
                           value={sw.version}
                           onChange={e => {
-                            const u = [...softwareStack];
-                            u[idx].version = e.target.value;
-                            setSoftwareStack(u);
+                            const version = e.target.value;
+                            setSoftwareStack(prev =>
+                              prev.map((item, i) =>
+                                i === idx ? { ...item, version } : item
+                              )
+                            );
                           }}
                         />
                       </div>
@@ -699,7 +560,7 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
             </div>
           )}
 
-          {/* ONGLET 3 : INFORMATIONS LIÉES AU SERVICE / FLUX */}
+          {/* TAB 3 : INFORMATIONS LIÉES AU SERVICE / FLUX */}
           {activeTab === 3 && (
             <div className="space-y-5">
               <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
@@ -732,13 +593,13 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
 
                 <div className="space-y-3">
                   {networkFlows.map((flow, idx) => (
-                    <div key={idx} className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-2">
+                    <div key={flow.id} className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-2">
                       <div className="flex justify-between items-center border-b pb-1">
                         <span className="font-bold text-slate-700">Flux #{idx + 1}</span>
                         {networkFlows.length > 1 && (
                           <button 
                             type="button" 
-                            onClick={() => removeNetworkFlow(idx)}
+                            onClick={() => removeNetworkFlow(flow.id)}
                             className="text-red-600 hover:text-red-800 font-bold text-xs"
                           >
                             Supprimer
@@ -749,23 +610,55 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
                       <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
                         <div>
                           <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Source *</label>
-                          <input type="text" required placeholder="ex: 10.10.0.0/16" className="w-full border p-1.5 rounded bg-white text-xs font-mono" value={flow.source} onChange={e => { const u = [...networkFlows]; u[idx].source = e.target.value; setNetworkFlows(u); }} />
+                          <input 
+                            type="text" 
+                            required 
+                            placeholder="ex: 10.10.0.0/16" 
+                            className="w-full border p-1.5 rounded bg-white text-xs font-mono" 
+                            value={flow.source} 
+                            onChange={e => updateNetworkFlow(flow.id, 'source', e.target.value)} 
+                          />
                         </div>
                         <div>
                           <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Destination *</label>
-                          <input type="text" required placeholder="ex: 10.118.100.64" className="w-full border p-1.5 rounded bg-white text-xs font-mono" value={flow.destination} onChange={e => { const u = [...networkFlows]; u[idx].destination = e.target.value; setNetworkFlows(u); }} />
+                          <input 
+                            type="text" 
+                            required 
+                            placeholder="ex: 10.118.100.64" 
+                            className="w-full border p-1.5 rounded bg-white text-xs font-mono" 
+                            value={flow.destination} 
+                            onChange={e => updateNetworkFlow(flow.id, 'destination', e.target.value)} 
+                          />
                         </div>
                         <div>
                           <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Service *</label>
-                          <input type="text" required placeholder="ex: TCP/443" className="w-full border p-1.5 rounded bg-white text-xs" value={flow.service} onChange={e => { const u = [...networkFlows]; u[idx].service = e.target.value; setNetworkFlows(u); }} />
+                          <input 
+                            type="text" 
+                            required 
+                            placeholder="ex: TCP/443" 
+                            className="w-full border p-1.5 rounded bg-white text-xs" 
+                            value={flow.service} 
+                            onChange={e => updateNetworkFlow(flow.id, 'service', e.target.value)} 
+                          />
                         </div>
                         <div>
                           <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Ports *</label>
-                          <input type="text" required placeholder="ex: 443" className="w-full border p-1.5 rounded bg-white text-xs font-mono" value={flow.port} onChange={e => { const u = [...networkFlows]; u[idx].port = e.target.value; setNetworkFlows(u); }} />
+                          <input 
+                            type="text" 
+                            required 
+                            placeholder="ex: 443" 
+                            className="w-full border p-1.5 rounded bg-white text-xs font-mono" 
+                            value={flow.port} 
+                            onChange={e => updateNetworkFlow(flow.id, 'port', e.target.value)} 
+                          />
                         </div>
                         <div>
                           <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Type de flux *</label>
-                          <select className="w-full border p-1.5 rounded bg-white text-xs" value={flow.flow_type} onChange={e => { const u = [...networkFlows]; u[idx].flow_type = e.target.value; setNetworkFlows(u); }}>
+                          <select 
+                            className="w-full border p-1.5 rounded bg-white text-xs" 
+                            value={flow.flow_type} 
+                            onChange={e => updateNetworkFlow(flow.id, 'flow_type', e.target.value)}
+                          >
                             <option value="Flux applicatif Web">Flux applicatif Web</option>
                             <option value="Flux d'administration">Flux d'administration</option>
                             <option value="Flux de base de données">Flux de base de données</option>
@@ -773,7 +666,13 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
                         </div>
                         <div>
                           <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Description (Optionnel)</label>
-                          <input type="text" placeholder="Description" className="w-full border p-1.5 rounded bg-white text-xs" value={flow.description} onChange={e => { const u = [...networkFlows]; u[idx].description = e.target.value; setNetworkFlows(u); }} />
+                          <input 
+                            type="text" 
+                            placeholder="Description" 
+                            className="w-full border p-1.5 rounded bg-white text-xs" 
+                            value={flow.description} 
+                            onChange={e => updateNetworkFlow(flow.id, 'description', e.target.value)} 
+                          />
                         </div>
                       </div>
                     </div>
@@ -783,7 +682,7 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
             </div>
           )}
 
-          {/* ONGLET 4 : SUIVI DES NON CONFORMITÉS */}
+          {/* TAB 4 : SUIVI DES NON CONFORMITÉS */}
           {activeTab === 4 && (
             <div className="space-y-5">
               <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
@@ -872,7 +771,7 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
 
                 <div className="space-y-2.5">
                   {securityCompliance.map((ctrl, idx) => (
-                    <div key={ctrl.id || idx} className="bg-slate-50 p-3 rounded-lg border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <div key={ctrl.id || `ctrl-${idx}`} className="bg-slate-50 p-3 rounded-lg border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3">
                       <div className="flex-1">
                         <span className="font-bold text-amber-700 mr-2">#{idx + 1}</span>
                         <span className="font-semibold text-slate-800 text-xs">{ctrl.control_name}</span>
@@ -881,14 +780,15 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
                       <div className="flex items-center space-x-2">
                         <select 
                           className={`border p-1.5 rounded-md font-bold text-xs bg-white ${
-                            ctrl.status.startsWith('Conforme') ? 'text-emerald-700 border-emerald-300' :
+                            (ctrl.status || '').startsWith('Conforme') ? 'text-emerald-700 border-emerald-300' :
                             ctrl.status === 'Non validé' ? 'text-red-600 border-red-300' : 'text-slate-600'
                           }`}
                           value={ctrl.status}
                           onChange={e => {
-                            const updated = [...securityCompliance];
-                            updated[idx].status = e.target.value;
-                            setSecurityCompliance(updated);
+                            const val = e.target.value;
+                            setSecurityCompliance(prev =>
+                              prev.map((item, i) => (i === idx ? { ...item, status: val } : item))
+                            );
                           }}
                         >
                           <option value="Conforme">Conforme</option>
@@ -905,9 +805,10 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
                           className="border p-1.5 rounded-md text-xs w-64 bg-white"
                           value={ctrl.comments}
                           onChange={e => {
-                            const updated = [...securityCompliance];
-                            updated[idx].comments = e.target.value;
-                            setSecurityCompliance(updated);
+                            const val = e.target.value;
+                            setSecurityCompliance(prev =>
+                              prev.map((item, i) => (i === idx ? { ...item, comments: val } : item))
+                            );
                           }}
                         />
                       </div>
@@ -918,7 +819,7 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
             </div>
           )}
 
-          {/* Pied de Page & Actions */}
+          {/* Modal Footer */}
           <div className="pt-4 border-t flex justify-between items-center bg-white p-4 -mx-6 -mb-6 mt-4 shrink-0">
             <button 
               type="button" 
@@ -929,15 +830,6 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
             </button>
             
             <div className="flex items-center space-x-2">
-              <button 
-                type="button"
-                onClick={handleExport}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs shadow transition flex items-center gap-1.5"
-                title="Télécharger la fiche Excel spécifique à cette VM"
-              >
-                <span>📊</span> Exporter cette VM (.xlsx)
-              </button>
-
               {activeTab > 1 && (
                 <button 
                   type="button" 
@@ -962,7 +854,7 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
                   disabled={loading}
                   className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-xs shadow transition disabled:opacity-50"
                 >
-                  {loading ? 'Enregistrement...' : initialData?.id ? 'Enregistrer les Modifications' : 'Enregistrer la Fiche Complète'}
+                  {loading ? 'Enregistrement...' : 'Enregistrer la Fiche'}
                 </button>
               )}
             </div>

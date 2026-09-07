@@ -8,8 +8,10 @@
   },
   "dependencies": {
     "cors": "^2.8.5",
-    "exceljs": "^4.4.0",
+    "exceljs": "^3.4.0",
     "express": "^4.19.2",
-    "pg": "^8.11.5"
+    "jszip": "^3.10.1",
+    "pg": "^8.11.5",
+    "xlsx-populate": "^1.21.0"
   }
 }

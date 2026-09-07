@@ -1,123 +1,135 @@
 const express = require('express');
 const router = express.Router();
 const ExcelJS = require('exceljs');
-const pool = require('../db');
+const path = require('path');
 
-// Helper interne pour générer la structure Excel à 4 onglets
-async function buildExcelWorkbook(vmId) {
-  const vmQuery = await pool.query(`
-    SELECT v.*, m.pole, m.structure, m.responsable_structure, m.responsable_service, m.contact
-    FROM vms v 
-    JOIN migration_requests m ON v.migration_request_id = m.id 
-    WHERE v.id = $1
-  `, [vmId]);
-
-  if (vmQuery.rows.length === 0) return null;
-  const vm = vmQuery.rows[0];
-
-  const stackQuery = await pool.query('SELECT * FROM vm_software_stack WHERE vm_id = $1', [vmId]);
-  const flowsQuery = await pool.query('SELECT * FROM network_flows WHERE vm_id = $1', [vmId]);
-  const secQuery = await pool.query('SELECT * FROM security_compliance WHERE vm_id = $1', [vmId]);
-
-  const workbook = new ExcelJS.Workbook();
-
-  // Onglet 1: 1. Principale
-  const sheet1 = workbook.addWorksheet('1. Principale');
-  sheet1.columns = [{ header: 'Champ', key: 'key', width: 32 }, { header: 'Valeur', key: 'val', width: 45 }];
-  sheet1.addRows([
-    { key: 'Pôle', val: vm.pole },
-    { key: 'Structure', val: vm.structure },
-    { key: 'Responsable de la Structure', val: vm.responsable_structure },
-    { key: 'Responsable du Service à publier', val: vm.responsable_service },
-    { key: 'Contact / Demandeur', val: vm.contact }
-  ]);
-
-  // Onglet 2: 2. Publication VM
-  const sheet2 = workbook.addWorksheet('2. Publication VM');
-  sheet2.columns = [
-    { header: 'Nom Application', key: 'app_name', width: 25 },
-    { header: 'Type Publication', key: 'publication_type', width: 20 },
-    { header: 'Population Cible', key: 'target_population', width: 25 },
-    { header: 'Entrée DNS', key: 'dns_entry', width: 25 },
-    { header: 'Adresse IP', key: 'ip_address', width: 18 },
-    { header: 'Port', key: 'port', width: 10 },
-    { header: 'OS Serveur', key: 'os_server', width: 20 }
-  ];
-  sheet2.addRow({
-    app_name: vm.app_name,
-    publication_type: vm.publication_type,
-    target_population: vm.target_population,
-    dns_entry: vm.dns_entry || '',
-    ip_address: vm.ip_address,
-    port: vm.port,
-    os_server: vm.os_server
-  });
-
-  sheet2.addRow([]);
-  sheet2.addRow(['Logiciel / Composant', 'Installé', 'Version']);
-  stackQuery.rows.forEach(s => {
-    sheet2.addRow([s.software_name, s.exists ? 'OUI' : 'NON', s.version || '/']);
-  });
-
-  // Onglet 3: 3. Informations liées au service
-  const sheet3 = workbook.addWorksheet('3. Informations liées au service');
-  sheet3.addRow(['Description de l\'architecture:', vm.architecture_desc || 'N/A']);
-  sheet3.addRow([]);
-  sheet3.addRow(['Source', 'Destination', 'Service', 'Port', 'Type de Flux', 'Description']);
-  flowsQuery.rows.forEach(f => {
-    sheet3.addRow([f.source, f.destination, f.service, f.port, f.flow_type, f.description || '']);
-  });
-
-  // Onglet 4: 4. Suivi des Non-conformités
-  const sheet4 = workbook.addWorksheet('4. Suivi des Non-conformités');
-  sheet4.columns = [
-    { header: 'Contrôle Sécurité', key: 'control_name', width: 45 },
-    { header: 'Statut', key: 'status', width: 20 },
-    { header: 'Commentaires', key: 'comments', width: 35 }
-  ];
-  secQuery.rows.forEach(s => {
-    sheet4.addRow([s.control_name, s.status, s.comments || '']);
-  });
-
-  const sanitizedName = (vm.app_name || 'VM').replace(/[^a-zA-Z0-9_-]/g, '_');
-  return { workbook, fileName: `Fiche_VM_${sanitizedName}.xlsx` };
-}
-
-// GET /api/vms/:id/export
-router.get('/vms/:id/export', async (req, res) => {
+router.post('/export-formulaire', async (req, res) => {
   try {
-    const data = await buildExcelWorkbook(req.params.id);
-    if (!data) return res.status(404).send('VM introuvable');
+    const data = req.body;
+    const templatePath = path.join(__dirname, '../formulaire_création_VM.xlsx');
 
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=${data.fileName}`);
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(templatePath);
 
-    await data.workbook.xlsx.write(res);
-    res.end();
-  } catch (err) {
-    res.status(500).send(err.message);
-  }
-});
-
-// GET /api/migrations/:id/export
-router.get('/migrations/:id/export', async (req, res) => {
-  try {
-    const vmRes = await pool.query('SELECT id FROM vms WHERE migration_request_id = $1 ORDER BY id ASC LIMIT 1', [req.params.id]);
-    
-    if (vmRes.rows.length === 0) {
-      return res.status(404).send('Aucune VM associée à cette demande pour générer l\'export Excel');
+    // ==========================================
+    // 1. ONGLET : Principale
+    // ==========================================
+    const sheet1 = workbook.getWorksheet('Principale') || workbook.getWorksheet(1);
+    if (sheet1) {
+      // Écriture uniquement dans la colonne B (les libellés en A29:A33 ne sont pas touchés)
+      sheet1.getCell('B29').value = data.pole || '';
+      sheet1.getCell('B30').value = data.structure || '';
+      sheet1.getCell('B31').value = data.responsable_structure || '/';
+      sheet1.getCell('B32').value = data.responsable_service || '/';
+      sheet1.getCell('B33').value = data.contact || '';
     }
 
-    const data = await buildExcelWorkbook(vmRes.rows[0].id);
-    if (!data) return res.status(404).send('Données introuvables');
+    // ==========================================
+    // 2. ONGLET : Publication VM
+    // ==========================================
+    const sheet2 = workbook.getWorksheet('Publication VM') || workbook.getWorksheet(2);
+    if (sheet2) {
+      const dateStr = new Date().toLocaleDateString('fr-FR');
+      sheet2.getCell('D8').value = `Date : ${dateStr}`;
+      
+      // Champs de paramètres dans les colonnes E et F
+      sheet2.getCell('E14').value = data.population_exploitante || '';
+      sheet2.getCell('E15').value = data.nom_application || '';
+      sheet2.getCell('E17').value = data.ip_address || '';
+      sheet2.getCell('E18').value = data.port || '';
+      sheet2.getCell('F20').value = data.os || '';
+
+      // Software Stack : recherche dynamique par nom dans la colonne D
+      if (Array.isArray(data.softwareStack)) {
+        const stackMap = new Map(
+          data.softwareStack.map(s => [ (s.software_name || s.name || '').toLowerCase().trim(), s ])
+        );
+
+        for (let r = 21; r <= 68; r++) {
+          const softLabel = (sheet2.getCell(`D${r}`).value || '').toString().toLowerCase().trim();
+          if (stackMap.has(softLabel)) {
+            const item = stackMap.get(softLabel);
+            const exists = item.exists !== undefined ? item.exists : Boolean(item.is_present);
+            sheet2.getCell(`E${r}`).value = exists ? 'Oui' : 'Non';
+            sheet2.getCell(`F${r}`).value = exists ? (item.version || '—') : '—';
+          }
+        }
+      }
+    }
+
+    // ==========================================
+    // 3. ONGLET : Informations liées au service
+    // ==========================================
+    const sheet3 = workbook.getWorksheet('Informations liées au service') || workbook.getWorksheet(3);
+    if (sheet3) {
+      if (data.architecture_desc) {
+        sheet3.getCell('C23').value = data.architecture_desc;
+      }
+
+      // Matrice des flux (Début à la colonne C, ligne 73)
+      if (Array.isArray(data.flux)) {
+        const startRow = 73;
+        const templateRow = sheet3.getRow(startRow);
+
+        data.flux.forEach((f, idx) => {
+          const rowNum = startRow + idx;
+          const row = sheet3.getRow(rowNum);
+
+          // Copie du style original pour conserver les bordures et couleurs
+          ['C', 'D', 'E', 'F', 'G', 'H'].forEach((col) => {
+            const templateCell = templateRow.getCell(col);
+            const cell = row.getCell(col);
+            if (templateCell.style) {
+              cell.style = JSON.parse(JSON.stringify(templateCell.style));
+            }
+          });
+
+          // Placement exact des données de la matrice
+          row.getCell('C').value = f.source || '';
+          row.getCell('D').value = f.destination || '';
+          row.getCell('E').value = f.service || '';
+          row.getCell('F').value = f.port || '';
+          row.getCell('G').value = f.type_flux || '';
+          row.getCell('H').value = f.description || '/';
+
+          row.commit();
+        });
+      }
+    }
+
+    // ==========================================
+    // 4. ONGLET : Suivie des Non conformités
+    // ==========================================
+    const sheet4 = workbook.getWorksheet('Suivie des Non conformités') || 
+                   workbook.getWorksheet('Suivi des Non conformités') || 
+                   workbook.getWorksheet(4);
+    if (sheet4) {
+      sheet4.getCell('C6').value = data.dns_site_web || 'N/A';
+      sheet4.getCell('C7').value = data.ip_publique || 'N/A';
+      sheet4.getCell('C8').value = data.ip_interne || data.ip_address || '';
+      sheet4.getCell('C9').value = data.ip_virtuelle_f5 || 'N/A';
+      sheet4.getCell('C10').value = data.publication || 'DEV';
+      sheet4.getCell('C11').value = new Date().toLocaleString('fr-FR');
+
+      if (Array.isArray(data.securityCompliance)) {
+        data.securityCompliance.forEach((ctrl, idx) => {
+          const rowNum = 13 + idx;
+          sheet4.getCell(`C${rowNum}`).value = ctrl.status || 'En attente';
+          sheet4.getCell(`D${rowNum}`).value = ctrl.comments || '/';
+        });
+      }
+    }
+
+    // Génération et envoi du buffer
+    const buffer = await workbook.xlsx.writeBuffer();
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=Demande_${req.params.id}_${data.fileName}`);
+    res.setHeader('Content-Disposition', 'attachment; filename=Formulaire_VM.xlsx');
+    res.send(Buffer.from(buffer));
 
-    await data.workbook.xlsx.write(res);
-    res.end();
-  } catch (err) {
-    res.status(500).send(err.message);
+  } catch (error) {
+    console.error('Erreur export Excel:', error);
+    res.status(500).json({ error: 'Erreur lors de la génération du fichier Excel' });
   }
 });
 

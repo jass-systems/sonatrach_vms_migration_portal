@@ -65,10 +65,10 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="w-full space-y-6">
       
-      {/* En-tête de la page */}
-      <div className="flex justify-between items-center bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+      {/* En-tête de la page responsive */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-sm w-full">
         <div>
           <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
             <span>📦</span> Demandes de Migration Sonatrach TRC
@@ -79,7 +79,7 @@ export default function Dashboard() {
         </div>
         <button 
           onClick={() => setShowNewRequest(true)}
-          className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-4 py-2.5 rounded-lg transition shadow-sm flex items-center gap-2"
+          className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-4 py-2.5 rounded-lg transition shadow-sm flex items-center gap-2 whitespace-nowrap shrink-0 w-full sm:w-auto justify-center"
         >
           <span>+</span> Initialiser une demande
         </button>
@@ -126,8 +126,8 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Tableau Principal des Demandes */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      {/* Tableau Principal des Demandes avec Largeur Minimale */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-x-auto w-full">
         {loading ? (
           <div className="p-8 text-center text-xs text-slate-500">Chargement des demandes de migration...</div>
         ) : requests.length === 0 ? (
@@ -141,56 +141,57 @@ export default function Dashboard() {
             </button>
           </div>
         ) : (
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-xs min-w-[850px]">
             <thead className="bg-slate-100 text-slate-700 border-b border-slate-200 font-bold uppercase text-[11px]">
               <tr>
-                <th className="p-4">ID</th>
-                <th className="p-4">Titre de la Demande</th>
-                <th className="p-4">Structure / Pôle</th>
-                <th className="p-4">Machines Virtuelles</th>
-                <th className="p-4 text-right">Actions</th>
+                <th className="p-4 whitespace-nowrap w-16">ID</th>
+                <th className="p-4 whitespace-nowrap">Titre de la Demande</th>
+                <th className="p-4 whitespace-nowrap">Structure / Pôle</th>
+                <th className="p-4 whitespace-nowrap">Machines Virtuelles</th>
+                <th className="p-4 text-right whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 font-medium">
               {requests.map(req => (
                 <tr key={req.id} className="hover:bg-slate-50/80 transition">
-                  <td className="p-4 font-bold text-slate-500">#{req.id}</td>
-                  <td className="p-4 font-bold text-slate-900">{req.title}</td>
-                  <td className="p-4 text-slate-600">
-                    <span className="font-semibold text-slate-800">{req.pole || 'ALGER'}</span> - {req.structure || 'DTI'}
+                  <td className="p-4 font-bold text-slate-500 whitespace-nowrap">#{req.id}</td>
+                  <td className="p-4 font-bold text-slate-900 whitespace-nowrap">{req.title}</td>
+                  <td className="p-4 text-slate-600 whitespace-nowrap">
+                    <span className="font-semibold text-slate-800">{req.pole || 'ALGER'}</span> - {req.structure || 'TRC Siège / EXP'}
                   </td>
-                  <td className="p-4">
-                    <span className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                  <td className="p-4 whitespace-nowrap">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200 whitespace-nowrap">
                       🖥️ {req.vm_count || req.vms?.length || 0} VM(s)
                     </span>
                   </td>
-                  <td className="p-4 text-right space-x-2">
-                    {/* Entrer dans la demande pour voir et exporter les VMs */}
-                    <button 
-                      onClick={() => setSelectedRequestForDetails(req)}
-                      className="bg-slate-900 hover:bg-slate-800 text-white text-xs px-3 py-2 rounded-lg transition font-bold shadow-sm inline-flex items-center gap-1.5"
-                      title="Voir les détails de la demande et exporter les fiches Excel des VMs"
-                    >
-                      <span>👁️</span> Voir / Gérer les VMs
-                    </button>
+                  
+                  {/* Actions alignées sans troncature */}
+                  <td className="p-4 text-right whitespace-nowrap">
+                    <div className="flex items-center justify-end gap-2">
+                      <button 
+                        onClick={() => setSelectedRequestForDetails(req)}
+                        className="bg-slate-900 hover:bg-slate-800 text-white text-xs px-3 py-2 rounded-lg transition font-bold shadow-sm inline-flex items-center gap-1.5 whitespace-nowrap"
+                        title="Voir les détails de la demande et exporter les fiches Excel des VMs"
+                      >
+                        <span>👁️</span> Voir / Gérer les VMs
+                      </button>
 
-                    {/* Raccourci pour saisir directement une nouvelle VM */}
-                    <button 
-                      onClick={() => setSelectedReqForNewVM(req.id)}
-                      className="bg-amber-600 hover:bg-amber-700 text-white text-xs px-3 py-2 rounded-lg transition font-bold shadow-sm inline-flex items-center gap-1"
-                      title="Ajouter une machine virtuelle à cette demande"
-                    >
-                      <span>+</span> Saisir VM
-                    </button>
+                      <button 
+                        onClick={() => setSelectedReqForNewVM(req.id)}
+                        className="bg-amber-600 hover:bg-amber-700 text-white text-xs px-3 py-2 rounded-lg transition font-bold shadow-sm inline-flex items-center gap-1 whitespace-nowrap"
+                        title="Ajouter une machine virtuelle à cette demande"
+                      >
+                        <span>+</span> Saisir VM
+                      </button>
 
-                    {/* Supprimer la demande */}
-                    <button 
-                      onClick={() => handleDeleteRequest(req.id)}
-                      className="bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-800 border border-red-200 text-xs px-2.5 py-2 rounded-lg transition font-bold"
-                      title="Supprimer cette demande"
-                    >
-                      🗑️
-                    </button>
+                      <button 
+                        onClick={() => handleDeleteRequest(req.id)}
+                        className="bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-800 border border-red-200 text-xs p-2 rounded-lg transition font-bold inline-flex items-center justify-center shrink-0"
+                        title="Supprimer cette demande"
+                      >
+                        🗑️
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -199,7 +200,7 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Modal 1 : Vue détaillée des VMs de la demande (permet l'export individuel .xlsx par VM) */}
+      {/* Modaux */}
       {selectedRequestForDetails && (
         <RequestDetailsModal 
           request={selectedRequestForDetails} 
@@ -208,7 +209,6 @@ export default function Dashboard() {
         />
       )}
 
-      {/* Modal 2 : Saisie directe d'une nouvelle VM */}
       {selectedReqForNewVM && (
         <VMFormModal 
           requestId={selectedReqForNewVM} 

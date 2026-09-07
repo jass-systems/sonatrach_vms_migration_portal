@@ -27,9 +27,9 @@ export default function RequestDetailsModal({ request, onClose, onRefresh }) {
 
   useEffect(() => {
     if (request?.id) fetchVms();
-  }, [request]);
+  }, [request?.id]);
 
-  // SUPPRESSION D'UNE VM SPÉCIFIQUE (Prend en charge 'id' et '_id')
+  // SUPPRESSION D'UNE VM SPÉCIFIQUE
   const handleDeleteVM = async (vm) => {
     const vmId = vm.id || vm._id;
     const vmIp = vm.formPublication?.ip_address || vm.ip_address || vm.app_name || 'cette VM';
@@ -42,10 +42,8 @@ export default function RequestDetailsModal({ request, onClose, onRefresh }) {
     if (!window.confirm(`Voulez-vous vraiment supprimer la machine virtuelle (${vmIp}) ?`)) return;
 
     try {
-      // 1. Essai sur la route standard /api/vms/:id
       let res = await fetch(`http://localhost:5000/api/vms/${vmId}`, { method: 'DELETE' });
 
-      // 2. Route alternative si la première n'est pas configurée ainsi sur le backend
       if (res.status === 404) {
         res = await fetch(`http://localhost:5000/api/migrations/vms/${vmId}`, { method: 'DELETE' });
       }
@@ -139,14 +137,16 @@ export default function RequestDetailsModal({ request, onClose, onRefresh }) {
                   {vms.map((vm, index) => {
                     const ip = vm.formPublication?.ip_address || vm.ip_address || '—';
                     const appName = vm.formPublication?.app_name || vm.app_name || 'VM';
+                    const port = vm.formPublication?.port || vm.port || '443';
+                    const osServer = vm.formPublication?.os_server || vm.os_server || 'Windows Server';
 
                     return (
                       <tr key={vm.id || vm._id || index} className="hover:bg-slate-50/80 transition">
                         <td className="p-3 font-bold text-slate-500">#{index + 1}</td>
                         <td className="p-3 font-bold text-slate-900">{appName}</td>
                         <td className="p-3 font-mono text-amber-700 font-bold">{ip}</td>
-                        <td className="p-3 font-mono text-slate-600">{vm.formPublication?.port || '443'}</td>
-                        <td className="p-3 text-slate-700">{vm.formPublication?.os_server || 'Windows Server'}</td>
+                        <td className="p-3 font-mono text-slate-600">{port}</td>
+                        <td className="p-3 text-slate-700">{osServer}</td>
                         <td className="p-3 text-right space-x-2">
                           {/* Voir / Éditer */}
                           <button
@@ -157,7 +157,7 @@ export default function RequestDetailsModal({ request, onClose, onRefresh }) {
                             👁️ Éditer
                           </button>
 
-                          {/* Export Excel du fichier modèle rempli */}
+                          {/* Export Excel */}
                           <button
                             onClick={() => exportVMToExcel(vm)}
                             className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow transition inline-flex items-center gap-1"

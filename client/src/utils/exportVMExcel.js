@@ -1,46 +1,22 @@
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
-// Palette de couleurs officielles Sonatrach TRC
 const COLORS = {
-  HEADER_BG: '1E293B',     // Bleu nuit / Slate-800
-  HEADER_TEXT: 'FFFFFF',   // Blanc
-  ORANGE_TRC: 'D97706',    // Orange TRC / Amber-600
-  GREEN_BG: 'D1FAE5',      // Vert clair (Oui / Conforme)
-  GREEN_TEXT: '047857',    // Vert foncé
-  RED_BG: 'FEE2E2',        // Rouge clair (Non validé)
-  RED_TEXT: 'B91C1C',      // Rouge foncé
-  GRAY_BG: 'F8FAFC'        // Gris neutre
+  HEADER_BG: '1E293B',
+  HEADER_TEXT: 'FFFFFF',
+  ORANGE_TRC: 'D97706',
+  GREEN_BG: 'D1FAE5',
+  GREEN_TEXT: '047857',
+  RED_BG: 'FEE2E2',
+  RED_TEXT: 'B91C1C',
+  GRAY_BG: 'F8FAFC'
 };
 
-// Bordure noire fine standard
-const blackThinBorder = {
-  top: { style: 'thin', color: { argb: '000000' } },
-  left: { style: 'thin', color: { argb: '000000' } },
-  bottom: { style: 'thin', color: { argb: '000000' } },
-  right: { style: 'thin', color: { argb: '000000' } }
-};
-
-const styleCell = (cell, options = {}) => {
-  cell.border = blackThinBorder;
-  cell.font = {
-    name: 'Calibri',
-    size: options.fontSize || 10,
-    bold: options.bold || false,
-    color: { argb: options.textColor || '000000' }
-  };
-  cell.alignment = {
-    vertical: 'middle',
-    horizontal: options.align || 'left',
-    wrapText: true
-  };
-  if (options.bgColor) {
-    cell.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: options.bgColor }
-    };
-  }
+const thinBorder = {
+  top: { style: 'thin', color: { argb: 'CBD5E1' } },
+  left: { style: 'thin', color: { argb: 'CBD5E1' } },
+  bottom: { style: 'thin', color: { argb: 'CBD5E1' } },
+  right: { style: 'thin', color: { argb: 'CBD5E1' } }
 };
 
 export const exportVMToExcel = async (vmData) => {
@@ -50,44 +26,38 @@ export const exportVMToExcel = async (vmData) => {
       return;
     }
 
-    // =========================================================================
-    // 1. NORMALISATION DES DONNÉES (Compatible Formulaire React ET PostgreSQL)
-    // =========================================================================
-    const pole = vmData.structureInfo?.pole || vmData.pole || vmData.structure_info?.pole || 'ALGER';
-    const structure = vmData.structureInfo?.structure || vmData.structure || vmData.structure_info?.structure || 'DTI';
-    const respStructure = vmData.structureInfo?.responsable_structure || vmData.responsable_structure || vmData.structure_info?.responsable_structure || '/';
-    const respService = vmData.structureInfo?.responsable_service || vmData.responsable_service || vmData.structure_info?.responsable_service || 'INTRANET';
-    const contact = vmData.structureInfo?.contact || vmData.contact || vmData.structure_info?.contact || '';
+    // Data Normalization
+    const pole = vmData.structureInfo?.pole || vmData.pole || 'ALGER';
+    const structure = vmData.structureInfo?.structure || vmData.structure || 'DTI';
+    const respStructure = vmData.structureInfo?.responsable_structure || vmData.responsable_structure || '/';
+    const respService = vmData.structureInfo?.responsable_service || vmData.responsable_service || 'INTRANET';
+    const contact = vmData.structureInfo?.contact || vmData.contact || '';
 
-    const pubType = vmData.formPublication?.publication_type || vmData.publication_type || vmData.form_publication?.publication_type || 'Intranet';
-    const targetPop = vmData.formPublication?.target_population || vmData.target_population || vmData.form_publication?.target_population || '';
-    const appName = vmData.formPublication?.app_name || vmData.app_name || vmData.form_publication?.app_name || 'VM_APP';
-    const dnsEntry = vmData.formPublication?.dns_entry || vmData.dns_entry || vmData.form_publication?.dns_entry || 'N/A';
-    const ipAddr = vmData.formPublication?.ip_address || vmData.ip_address || vmData.form_publication?.ip_address || '10.0.0.1';
-    const port = vmData.formPublication?.port || vmData.port || vmData.form_publication?.port || '443';
-    const osServer = vmData.formPublication?.os_server || vmData.os_server || vmData.form_publication?.os_server || 'Windows Server 2022';
+    const pubType = vmData.formPublication?.publication_type || vmData.publication_type || 'Intranet';
+    const targetPop = vmData.formPublication?.target_population || vmData.target_population || '';
+    const appName = vmData.formPublication?.app_name || vmData.app_name || 'VM_APP';
+    const dnsEntry = vmData.formPublication?.dns_entry || vmData.dns_entry || 'N/A';
+    const ipAddr = vmData.formPublication?.ip_address || vmData.ip_address || '10.0.0.1';
+    const port = vmData.formPublication?.port || vmData.port || '443';
+    const osServer = vmData.formPublication?.os_server || vmData.os_server || 'Windows Server 2022';
 
     const archDesc = vmData.architecture_desc || vmData.architectureDesc || '';
 
-    const softwareStack = vmData.softwareStack || vmData.software_stack || vmData.vm_software_stack || [];
+    const softwareStack = vmData.softwareStack || vmData.software_stack || [];
     const networkFlows = vmData.networkFlows || vmData.network_flows || [];
     const securityCompliance = vmData.securityCompliance || vmData.security_compliance || [];
 
     const secParams = vmData.securityParams || vmData.security_params || {};
-    const dnsSiteWeb = secParams.dns_site_web || vmData.dns_entry || dnsEntry;
-    const ipPublique = secParams.ip_publique || vmData.public_ip || 'N/A';
-    const ipInterne = secParams.ip_interne || vmData.ip_address || ipAddr;
-    const ipVirtuelleF5 = secParams.ip_virtuelle_f5 || vmData.f5_virtual_ip || 'N/A';
-    const publication = secParams.publication || vmData.publication || 'DEV';
-    const dateDerniereMaj = secParams.date_derniere_maj || vmData.updated_at || new Date().toISOString().slice(0, 16);
+    const dnsSiteWeb = secParams.dns_site_web || dnsEntry;
+    const ipPublique = secParams.ip_publique || 'N/A';
+    const ipInterne = secParams.ip_interne || ipAddr;
+    const ipVirtuelleF5 = secParams.ip_virtuelle_f5 || 'N/A';
+    const publication = secParams.publication || 'DEV';
+    const dateDerniereMaj = secParams.date_derniere_maj || new Date().toISOString().slice(0, 16);
 
-    // =========================================================================
-    // 2. CHARGEMENT DU FICHIER MODÈLE EXCEL
-    // =========================================================================
-    let workbook = new ExcelJS.Workbook();
+    const workbook = new ExcelJS.Workbook();
     let loadedFromTemplate = false;
 
-    // Liste des URLs possibles
     const urlsToTry = [
       '/formulaire_creation_VM.xlsx',
       '/formulaire_création_VM.xlsx',
@@ -98,7 +68,6 @@ export const exportVMToExcel = async (vmData) => {
       try {
         const res = await fetch(url);
         const contentType = res.headers.get('content-type') || '';
-        
         if (res.ok && !contentType.includes('text/html')) {
           const buffer = await res.arrayBuffer();
           await workbook.xlsx.load(buffer);
@@ -106,168 +75,285 @@ export const exportVMToExcel = async (vmData) => {
           break;
         }
       } catch (e) {
-        // Continuer vers la deuxième URL
+        // Continue trying next URL
       }
     }
 
-    if (!loadedFromTemplate) {
-      console.warn("Modèle Excel non trouvé dans /public, création dynamique du document...");
-    }
+    if (loadedFromTemplate) {
+      // -----------------------------------------------------------------------
+      // MODE 1: Fill template file
+      // -----------------------------------------------------------------------
+      
+      // ONGLET 1 : Principale
+      let sheet1 = workbook.getWorksheet('Principale') || workbook.getWorksheet(1);
+      if (sheet1) {
+        sheet1.getCell('B29').value = pole;
+        sheet1.getCell('B30').value = structure;
+        sheet1.getCell('B31').value = respStructure;
+        sheet1.getCell('B32').value = respService;
+        sheet1.getCell('B33').value = contact;
+      }
 
-    // -------------------------------------------------------------------------
-    // ONGLET 1 : Principale
-    // -------------------------------------------------------------------------
-    let sheet1 = workbook.getWorksheet('Principale') || workbook.getWorksheet(1);
-    if (!sheet1) sheet1 = workbook.addWorksheet('Principale');
-    sheet1.columns = [{ width: 35 }, { width: 50 }];
+      // ONGLET 2 : Publication VM
+      let sheet2 = workbook.getWorksheet('Publication VM') || workbook.getWorksheet(2);
+      if (sheet2) {
+        sheet2.getCell('B2').value = pubType;
+        sheet2.getCell('B3').value = targetPop;
+        sheet2.getCell('B4').value = appName;
+        sheet2.getCell('B5').value = dnsEntry;
+        sheet2.getCell('B6').value = ipAddr;
+        sheet2.getCell('B7').value = port;
+        sheet2.getCell('B8').value = osServer;
 
-    sheet1.getCell('B3').value = pole;
-    sheet1.getCell('B4').value = structure;
-    sheet1.getCell('B5').value = respStructure;
-    sheet1.getCell('B6').value = respService;
-    sheet1.getCell('B7').value = contact;
+        if (Array.isArray(softwareStack) && softwareStack.length > 0) {
+          const stackMap = new Map();
+          softwareStack.forEach(item => {
+            const name = (item.software_name || item.name || '').trim().toLowerCase();
+            if (name) stackMap.set(name, item);
+          });
 
-    for (let r = 3; r <= 7; r++) {
-      styleCell(sheet1.getCell(`A${r}`), { bold: true, bgColor: COLORS.GRAY_BG });
-      styleCell(sheet1.getCell(`B${r}`), { bold: false });
-    }
+          for (let r = 1; r <= sheet2.rowCount; r++) {
+            const cellD = sheet2.getCell(`D${r}`).value;
+            const softName = cellD ? String(cellD).trim().toLowerCase() : '';
 
-    // -------------------------------------------------------------------------
-    // ONGLET 2 : Publication VM
-    // -------------------------------------------------------------------------
-    let sheet2 = workbook.getWorksheet('Publication VM') || workbook.getWorksheet(2);
-    if (!sheet2) sheet2 = workbook.addWorksheet('Publication VM');
-    sheet2.columns = [{ width: 38 }, { width: 22 }, { width: 25 }];
+            if (stackMap.has(softName)) {
+              const item = stackMap.get(softName);
+              const isPresent = item.exists !== undefined ? item.exists : Boolean(item.is_present);
+              sheet2.getCell(`E${r}`).value = isPresent ? 'Oui' : 'Non';
+              sheet2.getCell(`F${r}`).value = isPresent ? (item.version || '—') : '—';
+            }
+          }
+        }
+      }
 
-    sheet2.getCell('B2').value = pubType;
-    sheet2.getCell('B3').value = targetPop;
-    sheet2.getCell('B4').value = appName;
-    sheet2.getCell('B5').value = dnsEntry;
-    sheet2.getCell('B6').value = ipAddr;
-    sheet2.getCell('B7').value = port;
-    sheet2.getCell('B8').value = osServer;
+      // ONGLET 3 : Informations liées au service
+      let sheet3 = workbook.getWorksheet('Informations liées au service') || workbook.getWorksheet(3);
+      if (sheet3) {
+        if (archDesc) sheet3.getCell('A2').value = archDesc;
 
-    for (let r = 2; r <= 8; r++) {
-      styleCell(sheet2.getCell(`A${r}`), { bold: true });
-      styleCell(sheet2.getCell(`B${r}`), { bold: false });
-    }
+        if (Array.isArray(networkFlows) && networkFlows.length > 0) {
+          networkFlows.forEach((flow, idx) => {
+            const rowNum = 73 + idx;
+            sheet3.getCell(`B${rowNum}`).value = flow.source || '';
+            sheet3.getCell(`C${rowNum}`).value = flow.destination || '';
+            sheet3.getCell(`D${rowNum}`).value = flow.service || '';
+            sheet3.getCell(`E${rowNum}`).value = flow.port || '';
+            sheet3.getCell(`F${rowNum}`).value = flow.flow_type || '';
+            sheet3.getCell(`G${rowNum}`).value = flow.description || '/';
+          });
+        }
+      }
 
-    // Software Stack
-    if (Array.isArray(softwareStack) && softwareStack.length > 0) {
-      softwareStack.forEach((sw, idx) => {
-        const rowNum = 11 + idx;
-        const row = sheet2.getRow(rowNum);
+      // ONGLET 4 : Suivi des Non conformités
+      let sheet4 = workbook.getWorksheet('Suivie des Non conformités') || 
+                     workbook.getWorksheet('Suivi des Non conformités') || 
+                     workbook.getWorksheet(4);
+      if (sheet4) {
+        sheet4.getCell('B2').value = dnsSiteWeb;
+        sheet4.getCell('B3').value = ipPublique;
+        sheet4.getCell('B4').value = ipInterne;
+        sheet4.getCell('B6').value = publication;
+        sheet4.getCell('B7').value = dateDerniereMaj;
 
-        const name = sw.software_name || sw.name || '';
-        const exists = sw.exists !== undefined ? sw.exists : (sw.is_present !== undefined ? sw.is_present : false);
-        const version = sw.version || '—';
+        if (Array.isArray(securityCompliance) && securityCompliance.length > 0) {
+          securityCompliance.forEach((ctrl, idx) => {
+            const rowNum = 10 + idx;
+            const status = ctrl.status || 'En attente';
+            const comments = ctrl.comments || '/';
 
-        row.getCell(1).value = name;
-        row.getCell(2).value = exists ? 'Oui' : 'Non';
-        row.getCell(3).value = exists ? version : '—';
+            sheet4.getCell(`B${rowNum}`).value = status;
+            sheet4.getCell(`C${rowNum}`).value = comments;
 
-        styleCell(row.getCell(1), { bold: true });
-        if (exists) {
-          styleCell(row.getCell(2), { bold: true, bgColor: COLORS.GREEN_BG, textColor: COLORS.GREEN_TEXT, align: 'center' });
-          styleCell(row.getCell(3), { bold: true, bgColor: COLORS.GREEN_BG, textColor: COLORS.GREEN_TEXT, align: 'center' });
-        } else {
-          styleCell(row.getCell(2), { align: 'center', textColor: '64748B' });
-          styleCell(row.getCell(3), { align: 'center', textColor: '94A3B8' });
+            const statusCell = sheet4.getCell(`B${rowNum}`);
+            if (status.startsWith('Conforme')) {
+              statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.GREEN_BG } };
+              statusCell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: COLORS.GREEN_TEXT } };
+            } else if (status === 'Non validé' || status === 'Non Conforme') {
+              statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.RED_BG } };
+              statusCell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: COLORS.RED_TEXT } };
+            }
+          });
+        }
+      }
+    } else {
+      // -----------------------------------------------------------------------
+      // MODE 2: Dynamic workbook construction fallback
+      // -----------------------------------------------------------------------
+      workbook.creator = 'Sonatrach TRC';
+      workbook.created = new Date();
+
+      // ONGLET 1 : Principale
+      const sheet1 = workbook.addWorksheet('Principale');
+      sheet1.columns = [{ width: 35 }, { width: 50 }];
+
+      const titleRow1 = sheet1.addRow(['Formulaire Technique de Publication et de Mise à Disposition des Ressources']);
+      titleRow1.font = { bold: true, color: { argb: COLORS.HEADER_TEXT }, size: 11 };
+      titleRow1.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.HEADER_BG } };
+      sheet1.mergeCells('A1:B1');
+      titleRow1.alignment = { vertical: 'middle', horizontal: 'center' };
+
+      sheet1.addRow([]);
+
+      const infoData1 = [
+        ['Pôle (*)', pole],
+        ['Structure (*)', structure],
+        ['Responsable de la Structure (*)', respStructure],
+        ['Responsable du service à publier (*)', respService],
+        ['Contact (*)', contact]
+      ];
+
+      infoData1.forEach(([label, val]) => {
+        const r = sheet1.addRow([label, val]);
+        r.getCell(1).font = { bold: true };
+        r.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.GRAY_BG } };
+        r.getCell(1).border = thinBorder;
+        r.getCell(2).border = thinBorder;
+      });
+
+      // ONGLET 2 : Publication VM
+      const sheet2 = workbook.addWorksheet('Publication VM');
+      sheet2.columns = [{ width: 38 }, { width: 22 }, { width: 25 }];
+
+      const h2_1 = sheet2.addRow(['Formulaire Technique de Publication', '', '']);
+      h2_1.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.HEADER_BG } };
+      h2_1.font = { bold: true, color: { argb: COLORS.HEADER_TEXT } };
+      sheet2.mergeCells('A1:C1');
+
+      const pubData = [
+        ['Type de publication', pubType],
+        ['Population exploitant service', targetPop],
+        ['Nom de l\'application (VM)', appName],
+        ['Entrée DNS', dnsEntry],
+        ['Adresse IP', ipAddr],
+        ['Port', port],
+        ['OS Serveur', osServer]
+      ];
+
+      pubData.forEach(([label, val]) => {
+        const r = sheet2.addRow([label, val, '']);
+        r.getCell(1).font = { bold: true };
+        r.getCell(1).border = thinBorder;
+        r.getCell(2).border = thinBorder;
+      });
+
+      sheet2.addRow([]);
+
+      const stackHeader = sheet2.addRow(['Configuration Software', 'Existance', 'Version']);
+      stackHeader.eachCell((cell) => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.ORANGE_TRC } };
+        cell.font = { bold: true, color: { argb: COLORS.HEADER_TEXT } };
+        cell.border = thinBorder;
+      });
+
+      softwareStack.forEach((sw) => {
+        const isPresent = sw.exists !== undefined ? sw.exists : sw.is_present;
+        const existsText = isPresent ? 'Oui' : 'Non';
+        const r = sheet2.addRow([sw.software_name, existsText, sw.version || '—']);
+        
+        r.getCell(1).border = thinBorder;
+        r.getCell(2).border = thinBorder;
+        r.getCell(3).border = thinBorder;
+
+        if (isPresent) {
+          r.getCell(2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.GREEN_BG } };
+          r.getCell(2).font = { bold: true, color: { argb: COLORS.GREEN_TEXT } };
         }
       });
-    }
 
-    // -------------------------------------------------------------------------
-    // ONGLET 3 : Informations liées au service
-    // -------------------------------------------------------------------------
-    let sheet3 = workbook.getWorksheet('Informations liées au service') || workbook.getWorksheet(3);
-    if (!sheet3) sheet3 = workbook.addWorksheet('Informations liées au service');
-    sheet3.columns = [{ width: 25 }, { width: 20 }, { width: 15 }, { width: 12 }, { width: 25 }, { width: 35 }];
+      // ONGLET 3 : Informations liées au service
+      const sheet3 = workbook.addWorksheet('Informations liées au service');
+      sheet3.columns = [{ width: 25 }, { width: 20 }, { width: 15 }, { width: 12 }, { width: 25 }, { width: 35 }];
 
-    if (archDesc) {
-      const archCell = sheet3.getCell('A2');
-      archCell.value = archDesc;
-      styleCell(archCell, { fontSize: 10 });
-    }
+      const archHeader = sheet3.addRow(['Architecture du service', '', '', '', '', '']);
+      archHeader.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.HEADER_BG } };
+      archHeader.font = { bold: true, color: { argb: COLORS.HEADER_TEXT } };
+      sheet3.mergeCells('A1:F1');
 
-    if (Array.isArray(networkFlows) && networkFlows.length > 0) {
-      networkFlows.forEach((flow, idx) => {
-        const rowNum = 5 + idx;
-        const row = sheet3.getRow(rowNum);
+      const archDescRow = sheet3.addRow([archDesc]);
+      sheet3.mergeCells('A2:F2');
+      archDescRow.getCell(1).border = thinBorder;
 
-        row.getCell(1).value = flow.source || '';
-        row.getCell(2).value = flow.destination || '';
-        row.getCell(3).value = flow.service || '';
-        row.getCell(4).value = flow.port || '';
-        row.getCell(5).value = flow.flow_type || '';
-        row.getCell(6).value = flow.description || '/';
+      sheet3.addRow([]);
 
-        styleCell(row.getCell(1), { align: 'center' });
-        styleCell(row.getCell(2), { align: 'center' });
-        styleCell(row.getCell(3), { align: 'center' });
-        styleCell(row.getCell(4), { align: 'center', bold: true });
-        styleCell(row.getCell(5), { align: 'left' });
-        styleCell(row.getCell(6), { align: 'left' });
+      const flowHeader = sheet3.addRow(['Source', 'Destination', 'Service', 'Ports', 'Type de flux', 'Description']);
+      flowHeader.eachCell((cell) => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.ORANGE_TRC } };
+        cell.font = { bold: true, color: { argb: COLORS.HEADER_TEXT } };
+        cell.border = thinBorder;
+        cell.alignment = { horizontal: 'center' };
       });
-    }
 
-    // -------------------------------------------------------------------------
-    // ONGLET 4 : Suivi des Non conformités
-    // -------------------------------------------------------------------------
-    let sheet4 = workbook.getWorksheet('Suivie des Non conformités') || 
-                   workbook.getWorksheet('Suivi des Non conformités') || 
-                   workbook.getWorksheet(4);
-    if (!sheet4) sheet4 = workbook.addWorksheet('Suivi des Non conformités');
-    sheet4.columns = [{ width: 60 }, { width: 30 }, { width: 35 }];
+      networkFlows.forEach((flow) => {
+        const r = sheet3.addRow([
+          flow.source,
+          flow.destination,
+          flow.service,
+          flow.port,
+          flow.flow_type,
+          flow.description || '/'
+        ]);
+        r.eachCell((cell) => { cell.border = thinBorder; });
+      });
 
-    sheet4.getCell('B2').value = dnsSiteWeb;
-    sheet4.getCell('B3').value = ipPublique;
-    sheet4.getCell('B4').value = ipInterne;
-    sheet4.getCell('B5').value = ipVirtuelleF5;
-    sheet4.getCell('B6').value = publication;
-    sheet4.getCell('B7').value = dateDerniereMaj;
+      // ONGLET 4 : Suivi des Non conformités
+      const sheet4 = workbook.addWorksheet('Suivie des Non conformités');
+      sheet4.columns = [{ width: 60 }, { width: 30 }, { width: 35 }];
 
-    for (let r = 2; r <= 7; r++) {
-      styleCell(sheet4.getCell(`A${r}`), { bold: true });
-      styleCell(sheet4.getCell(`B${r}`), { bold: false });
-    }
+      const secHeader = sheet4.addRow(['Service Publié (Paramètres de Sécurité SI)', '', '']);
+      secHeader.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.HEADER_BG } };
+      secHeader.font = { bold: true, color: { argb: COLORS.HEADER_TEXT } };
+      sheet4.mergeCells('A1:C1');
 
-    if (Array.isArray(securityCompliance) && securityCompliance.length > 0) {
-      securityCompliance.forEach((ctrl, idx) => {
-        const rowNum = 10 + idx;
-        const row = sheet4.getRow(rowNum);
+      const secParamsList = [
+        ['Entrée DNS (site web)', dnsSiteWeb],
+        ['Adresse IP Publique', ipPublique],
+        ['Adresse IP Interne (*)', ipInterne],
+        ['Adresse IP Virtuelle F5', ipVirtuelleF5],
+        ['Publication (*)', publication],
+        ['Date / Heure de la dernière Mise à jour', dateDerniereMaj]
+      ];
 
-        const name = ctrl.control_name || ctrl.name || '';
+      secParamsList.forEach(([k, v]) => {
+        const r = sheet4.addRow([k, v, '']);
+        r.getCell(1).font = { bold: true };
+        r.getCell(1).border = thinBorder;
+        r.getCell(2).border = thinBorder;
+      });
+
+      sheet4.addRow([]);
+
+      const ctrlHeader = sheet4.addRow(['Contrôles Sécurité SI', 'État et Conformité', 'Commentaires']);
+      ctrlHeader.eachCell((cell) => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.ORANGE_TRC } };
+        cell.font = { bold: true, color: { argb: COLORS.HEADER_TEXT } };
+        cell.border = thinBorder;
+      });
+
+      securityCompliance.forEach((ctrl) => {
         const status = ctrl.status || 'En attente';
-        const comments = ctrl.comments || '/';
-
-        row.getCell(1).value = name;
-        row.getCell(2).value = status;
-        row.getCell(3).value = comments;
-
-        styleCell(row.getCell(1), { bold: true });
-        styleCell(row.getCell(3), { align: 'left' });
+        const r = sheet4.addRow([ctrl.control_name, status, ctrl.comments || '/']);
+        r.getCell(1).border = thinBorder;
+        r.getCell(2).border = thinBorder;
+        r.getCell(3).border = thinBorder;
 
         if (status.startsWith('Conforme')) {
-          styleCell(row.getCell(2), { bold: true, bgColor: COLORS.GREEN_BG, textColor: COLORS.GREEN_TEXT, align: 'center' });
+          r.getCell(2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.GREEN_BG } };
+          r.getCell(2).font = { bold: true, color: { argb: COLORS.GREEN_TEXT } };
         } else if (status === 'Non validé' || status === 'Non Conforme') {
-          styleCell(row.getCell(2), { bold: true, bgColor: COLORS.RED_BG, textColor: COLORS.RED_TEXT, align: 'center' });
-        } else {
-          styleCell(row.getCell(2), { align: 'center', textColor: '475569' });
+          r.getCell(2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.RED_BG } };
+          r.getCell(2).font = { bold: true, color: { argb: COLORS.RED_TEXT } };
         }
       });
     }
 
-    // =========================================================================
-    // 3. TÉLÉCHARGEMENT DU FICHIER
-    // =========================================================================
+    // Generate output file
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const filename = `formulaire_création_VM_${ipAddr || appName || 'export'}.xlsx`;
     saveAs(blob, filename);
 
   } catch (error) {
-    console.error("Erreur détaillée lors de l'exportation Excel :", error);
+    console.error("Erreur lors de l'exportation Excel :", error);
     alert(`Impossible d'exporter le fichier Excel : ${error.message}`);
   }
 };
