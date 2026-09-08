@@ -489,7 +489,7 @@ export const exportVMToExcel = async (rawVmData) => {
       statusCell.dataValidation = {
         type: 'list',
         allowBlank: true,
-        formulae: ['"Conforme,Non conforme,En attente,Non applicable"']
+        formulae: ['"Conforme,Conforme (Actif & À jour),Conforme (Certificat TLS actif),Conforme (PoLP respecté),Non validé,Non conforme,En attente,Non applicable"']
       };
 
       sheet4.getCell(`D${r}`).value = commentsStr;

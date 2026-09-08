@@ -1,146 +1,185 @@
+// routes/export.js
 const express = require('express');
 const router = express.Router();
 const ExcelJS = require('exceljs');
-const path = require('path');
 
 router.post('/export-formulaire', async (req, res) => {
   try {
-    const data = req.body || {};
-    
-    // Path updated to reference public/formulaire_création_VM_3.xlsx from root execution folder
-    const templatePath = path.join(process.cwd(), 'public', 'formulaire_création_VM_3.xlsx');
+    const { projectName, requestor, date, vms = [] } = req.body;
 
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.readFile(templatePath);
+    const ws = workbook.addWorksheet('Demande VM');
 
-    // Data extraction & fallback normalization
-    const pole = data.pole || data.structureInfo?.pole || 'ALGER';
-    const structure = data.structure || data.structureInfo?.structure || 'DTI';
-    const responsable_structure = data.responsable_structure || data.structureInfo?.responsable_structure || '/';
-    const responsable_service = data.responsable_service || data.structureInfo?.responsable_service || '/';
-    const contact = data.contact || data.structureInfo?.contact || '';
+    // Ensure grid lines remain visible
+    ws.views = [{ showGridLines: true }];
 
-    const population = data.population_exploitante || data.target_population || data.formPublication?.target_population || '';
-    const appName = data.nom_application || data.app_name || data.formPublication?.app_name || '';
-    const ipAddress = data.ip_address || data.formPublication?.ip_address || '';
-    const port = data.port || data.formPublication?.port || '443';
-    const os = data.os || data.os_server || data.formPublication?.os_server || '';
+    // 1. Column Widths Setup
+    ws.columns = [
+      { width: 4 },   // Column A (Margin)
+      { width: 28 },  // Column B (Hostname / Label)
+      { width: 16 },  // Column C (CPU / Value)
+      { width: 16 },  // Column D (RAM GB)
+      { width: 28 },  // Column E (OS)
+      { width: 18 }   // Column F (Disk GB)
+    ];
 
-    const softwareStack = data.softwareStack || data.software_stack || [];
-    const architectureDesc = data.architecture_desc || data.architectureDesc || '';
-    const networkFlows = data.flux || data.networkFlows || data.network_flows || [];
+    // Styling Palette & Shared Attributes
+    const PALETTE = {
+      primaryNavy: '1F4E79',
+      whiteText: 'FFFFFF',
+      accentLight: 'D9E1F2',
+      zebraRow: 'F9FAFB',
+      borderColor: 'D9D9D9'
+    };
 
-    const dnsSiteWeb = data.dns_site_web || data.securityParams?.dns_site_web || data.dns_entry || 'N/A';
-    const ipPublique = data.ip_publique || data.public_ip || data.securityParams?.ip_publique || 'N/A';
-    const ipInterne = data.ip_interne || data.securityParams?.ip_interne || ipAddress || '';
-    const ipVirtuelleF5 = data.ip_virtuelle_f5 || data.f5_virtual_ip || data.securityParams?.ip_virtuelle_f5 || 'N/A';
-    const publication = data.publication || data.securityParams?.publication || 'DEV';
-    const securityCompliance = data.securityCompliance || data.security_compliance || [];
+    const cellBorder = {
+      top: { style: 'thin', color: { argb: PALETTE.borderColor } },
+      left: { style: 'thin', color: { argb: PALETTE.borderColor } },
+      bottom: { style: 'thin', color: { argb: PALETTE.borderColor } },
+      right: { style: 'thin', color: { argb: PALETTE.borderColor } }
+    };
 
-    // 1. ONGLET : Principale
-    const sheet1 = workbook.getWorksheet('Principale') || workbook.getWorksheet(1);
-    if (sheet1) {
-      sheet1.getCell('B29').value = pole;
-      sheet1.getCell('B30').value = structure;
-      sheet1.getCell('B31').value = responsable_structure;
-      sheet1.getCell('B32').value = responsable_service;
-      sheet1.getCell('B33').value = contact;
-    }
+    // 2. Header Title Banner
+    ws.mergeCells('B2:F3');
+    const titleCell = ws.getCell('B2');
+    titleCell.value = 'FORMULAIRE DE CRÉATION DE MACHINES VIRTUELLES';
+    titleCell.font = { name: 'Calibri', size: 14, bold: true, color: { argb: PALETTE.whiteText } };
+    titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
 
-    // 2. ONGLET : Publication VM
-    const sheet2 = workbook.getWorksheet('Publication VM') || workbook.getWorksheet(2);
-    if (sheet2) {
-      const dateStr = new Date().toLocaleDateString('fr-FR');
-      sheet2.getCell('D8').value = `Date : ${dateStr}`;
-      
-      sheet2.getCell('E14').value = population;
-      sheet2.getCell('E15').value = appName;
-      sheet2.getCell('E17').value = ipAddress;
-      sheet2.getCell('E18').value = port;
-      sheet2.getCell('F20').value = os;
+    ['B2', 'C2', 'D2', 'E2', 'F2', 'B3', 'C3', 'D3', 'E3', 'F3'].forEach(coord => {
+      ws.getCell(coord).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALETTE.primaryNavy } };
+    });
 
-      if (Array.isArray(softwareStack)) {
-        const stackMap = new Map(
-          softwareStack.map(s => [(s.software_name || s.name || '').toLowerCase().trim(), s])
-        );
+    // 3. Metadata Form Fields
+    const metaFields = [
+      { label: 'Nom du Projet :', value: projectName || '' },
+      { label: 'Demandeur :', value: requestor || '' },
+      { label: 'Date de Demande :', value: date || '' }
+    ];
 
-        for (let r = 21; r <= 68; r++) {
-          const softLabel = (sheet2.getCell(`D${r}`).value || '').toString().toLowerCase().trim();
-          if (stackMap.has(softLabel)) {
-            const item = stackMap.get(softLabel);
-            const exists = item.exists !== undefined ? Boolean(item.exists) : Boolean(item.is_present);
-            sheet2.getCell(`E${r}`).value = exists ? 'Oui' : 'Non';
-            sheet2.getCell(`F${r}`).value = exists ? (item.version || '—') : '—';
-          }
+    let rowCursor = 5;
+    metaFields.forEach(field => {
+      ws.getRow(rowCursor).height = 22;
+
+      // Label Cell
+      const lbl = ws.getCell(`B${rowCursor}`);
+      lbl.value = field.label;
+      lbl.font = { name: 'Calibri', size: 11, bold: true };
+      lbl.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALETTE.accentLight } };
+      lbl.alignment = { vertical: 'middle', horizontal: 'left' };
+      lbl.border = cellBorder;
+
+      // Value Field (Merged C:F)
+      ws.mergeCells(`C${rowCursor}:F${rowCursor}`);
+      const val = ws.getCell(`C${rowCursor}`);
+      val.value = field.value;
+      val.font = { name: 'Calibri', size: 11 };
+      val.alignment = { vertical: 'middle', horizontal: 'left' };
+
+      ['C', 'D', 'E', 'F'].forEach(col => {
+        ws.getCell(`${col}${rowCursor}`).border = cellBorder;
+      });
+
+      rowCursor++;
+    });
+
+    rowCursor += 2; // Jump to Row 10 for table headers
+
+    // 4. Data Table Headers
+    const headers = ['Hostname', 'CPU (vCPU)', 'RAM (GB)', 'Système d\'exploitation', 'Disque (GB)'];
+    const cols = ['B', 'C', 'D', 'E', 'F'];
+
+    ws.getRow(rowCursor).height = 26;
+    cols.forEach((col, idx) => {
+      const headerCell = ws.getCell(`${col}${rowCursor}`);
+      headerCell.value = headers[idx];
+      headerCell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: PALETTE.whiteText } };
+      headerCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALETTE.primaryNavy } };
+      headerCell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+      headerCell.border = cellBorder;
+    });
+
+    const tableDataStartRow = rowCursor + 1;
+
+    // 5. Dynamic Data Rows
+    vms.forEach((vm, index) => {
+      rowCursor++;
+      ws.getRow(rowCursor).height = 20;
+
+      const rowBg = index % 2 === 0 ? 'FFFFFF' : PALETTE.zebraRow;
+      const rowValues = [
+        vm.hostname || '',
+        Number(vm.cpu) || 0,
+        Number(vm.ram) || 0,
+        vm.os || '',
+        Number(vm.disk) || 0
+      ];
+
+      cols.forEach((col, idx) => {
+        const cell = ws.getCell(`${col}${rowCursor}`);
+        cell.value = rowValues[idx];
+        cell.font = { name: 'Calibri', size: 10 };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBg } };
+        cell.border = cellBorder;
+        cell.alignment = {
+          vertical: 'middle',
+          horizontal: idx === 0 || idx === 3 ? 'left' : 'center'
+        };
+
+        if (idx === 1 || idx === 2 || idx === 4) {
+          cell.numFmt = '#,##0';
         }
-      }
+      });
+    });
+
+    // 6. Formulas & Total Summary Row
+    if (vms.length > 0) {
+      rowCursor++;
+      const summaryRow = rowCursor;
+      ws.getRow(summaryRow).height = 22;
+
+      // Label
+      const totalLbl = ws.getCell(`B${summaryRow}`);
+      totalLbl.value = 'TOTAL';
+      totalLbl.font = { name: 'Calibri', size: 11, bold: true };
+      totalLbl.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALETTE.accentLight } };
+      totalLbl.alignment = { vertical: 'middle', horizontal: 'right' };
+      totalLbl.border = cellBorder;
+
+      // Dynamic CPU Formula Sum
+      const totalCpu = ws.getCell(`C${summaryRow}`);
+      totalCpu.value = { formula: `SUM(C${tableDataStartRow}:C${summaryRow - 1})` };
+      totalCpu.font = { name: 'Calibri', size: 11, bold: true };
+      totalCpu.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALETTE.accentLight } };
+      totalCpu.alignment = { vertical: 'middle', horizontal: 'center' };
+      totalCpu.numFmt = '#,##0';
+      totalCpu.border = cellBorder;
+
+      // Dynamic RAM Formula Sum
+      const totalRam = ws.getCell(`D${summaryRow}`);
+      totalRam.value = { formula: `SUM(D${tableDataStartRow}:D${summaryRow - 1})` };
+      totalRam.font = { name: 'Calibri', size: 11, bold: true };
+      totalRam.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALETTE.accentLight } };
+      totalRam.alignment = { vertical: 'middle', horizontal: 'center' };
+      totalRam.numFmt = '#,##0';
+      totalRam.border = cellBorder;
+
+      ['E', 'F'].forEach(col => {
+        const emptyCell = ws.getCell(`${col}${summaryRow}`);
+        emptyCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALETTE.accentLight } };
+        emptyCell.border = cellBorder;
+      });
     }
 
-    // 3. ONGLET : Informations liées au service
-    const sheet3 = workbook.getWorksheet('Informations liées au service') || workbook.getWorksheet(3);
-    if (sheet3) {
-      if (architectureDesc) {
-        sheet3.getCell('C23').value = architectureDesc;
-      }
-
-      if (Array.isArray(networkFlows)) {
-        const startRow = 73;
-        const templateRow = sheet3.getRow(startRow);
-
-        networkFlows.forEach((f, idx) => {
-          const rowNum = startRow + idx;
-          const row = sheet3.getRow(rowNum);
-
-          ['C', 'D', 'E', 'F', 'G', 'H'].forEach((col) => {
-            const templateCell = templateRow.getCell(col);
-            const cell = row.getCell(col);
-            if (templateCell.style) {
-              cell.style = JSON.parse(JSON.stringify(templateCell.style));
-            }
-          });
-
-          row.getCell('C').value = f.source || '';
-          row.getCell('D').value = f.destination || '';
-          row.getCell('E').value = f.service || '';
-          row.getCell('F').value = f.port ? String(f.port) : '';
-          row.getCell('G').value = f.flow_type || f.type_flux || '';
-          row.getCell('H').value = f.description || '/';
-
-          row.commit();
-        });
-      }
-    }
-
-    // 4. ONGLET : Suivie des Non conformités
-    const sheet4 = workbook.getWorksheet('Suivie des Non conformités') || 
-                   workbook.getWorksheet('Suivi des Non conformités') || 
-                   workbook.getWorksheet(4);
-    if (sheet4) {
-      sheet4.getCell('C6').value = dnsSiteWeb;
-      sheet4.getCell('C7').value = ipPublique;
-      sheet4.getCell('C8').value = ipInterne;
-      sheet4.getCell('C9').value = ipVirtuelleF5;
-      sheet4.getCell('C10').value = publication;
-      sheet4.getCell('C11').value = new Date().toLocaleString('fr-FR');
-
-      if (Array.isArray(securityCompliance)) {
-        securityCompliance.forEach((ctrl, idx) => {
-          const rowNum = 13 + idx;
-          sheet4.getCell(`C${rowNum}`).value = ctrl.status || 'En attente';
-          sheet4.getCell(`D${rowNum}`).value = ctrl.comments || ctrl.commentaires || '/';
-        });
-      }
-    }
-
-    const buffer = await workbook.xlsx.writeBuffer();
-
+    // Stream Response
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=Formulaire_VM_${appName || 'Export'}.xlsx`);
-    res.send(Buffer.from(buffer));
+    res.setHeader('Content-Disposition', 'attachment; filename="Formulaire_Creation_VM.xlsx"');
 
+    await workbook.xlsx.write(res);
+    res.end();
   } catch (error) {
-    console.error('Erreur export Excel:', error);
-    res.status(500).json({ error: 'Erreur lors de la génération du fichier Excel' });
+    console.error('Error constructing Excel file:', error);
+    res.status(500).json({ error: 'Failed to build Excel document.' });
   }
 });
 
