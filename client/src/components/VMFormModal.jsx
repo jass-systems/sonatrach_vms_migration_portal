@@ -77,13 +77,13 @@ const DEFAULT_NETWORK_FLOWS = [
 
 const DEFAULT_SECURITY_COMPLIANCE = [
   { id: 1, control_name: 'Vérification de la mise en place du Service à publier dans la Zone DMZ', status: 'Non validé', comments: '/' },
-  { id: 2, control_name: "Vérification de l'installation de l'Antivirus (avec une base de signature à jour)", status: 'Conforme (Actif & À jour)', comments: '' },
-  { id: 3, control_name: "Vérification de l'utilisation de certificat TLS", status: 'Conforme (Certificat TLS actif)', comments: '' },
-  { id: 4, control_name: "Réalisation d'un scan de vulnérabilités authentifié", status: 'En attente', comments: '' },
-  { id: 5, control_name: 'Réalisation d\'un scan de Vulnérabilités Web', status: 'En attente', comments: '' },
-  { id: 6, control_name: 'Scan de Conformité des configurations de sécurité appliquées', status: 'Conforme', comments: '' },
-  { id: 7, control_name: "Revue de Code source de l'application", status: 'Conforme', comments: '' },
-  { id: 8, control_name: "Vérification de l'application de la politique du moindre privilège pour chaque type d'utilisateur ayant accès au service.", status: 'Conforme (PoLP respecté)', comments: '' }
+  { id: 2, control_name: "Vérification de l'installation de l'Antivirus (avec une base de signature à jour)", status: 'Conforme (Actif & À jour)', comments: '/' },
+  { id: 3, control_name: "Vérification de l'utilisation de certificat TLS", status: 'Conforme (Certificat TLS actif)', comments: '/' },
+  { id: 4, control_name: "Réalisation d'un scan de vulnérabilités authentifié", status: 'En attente', comments: '/' },
+  { id: 5, control_name: 'Réalisation d\'un scan de Vulnérabilités Web', status: 'En attente', comments: '/' },
+  { id: 6, control_name: 'Scan de Conformité des configurations de sécurité appliquées', status: 'Conforme', comments: '/' },
+  { id: 7, control_name: "Revue de Code source de l'application", status: 'Conforme', comments: '/' },
+  { id: 8, control_name: "Vérification de l'application de la politique du moindre privilège pour chaque type d'utilisateur ayant accès au service.", status: 'Conforme (PoLP respecté)', comments: '/' }
 ];
 
 const getInitialStack = (data) => {
@@ -114,7 +114,7 @@ const getInitialSecurityParams = (data) => ({
   dns_site_web: data?.securityParams?.dns_site_web || data?.security_params?.dns_site_web || data?.dns_entry || 'N/A',
   ip_publique: data?.securityParams?.ip_publique || data?.security_params?.ip_publique || data?.public_ip || 'N/A',
   ip_interne: data?.securityParams?.ip_interne || data?.security_params?.ip_interne || data?.ip_address || '10.118.100.64',
-  ip_virtuelle_f5: data?.securityParams?.ip_virtuelle_f5 || data?.security_params?.ip_virtuelle_f5 || data?.f5_virtual_ip || 'N/A',
+  ip_virtuelle: data?.securityParams?.ip_virtuelle || data?.security_params?.ip_virtuelle || '/',
   publication: data?.securityParams?.publication || data?.security_params?.publication || 'DEV',
   date_derniere_maj: data?.securityParams?.date_derniere_maj || data?.security_params?.date_derniere_maj || new Date().toISOString().slice(0, 16)
 });
@@ -129,10 +129,10 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
 
   const [structureInfo, setStructureInfo] = useState({
     pole: initialData?.structureInfo?.pole || initialData?.pole || 'ALGER',
-    structure: initialData?.structureInfo?.structure || initialData?.structure || 'DTI',
+    structure: initialData?.structureInfo?.structure || initialData?.structure || 'TRC Siège / EXP',
     responsable_structure: initialData?.structureInfo?.responsable_structure || initialData?.responsable_structure || '/',
     responsable_service: initialData?.structureInfo?.responsable_service || initialData?.responsable_service || 'INTRANET',
-    contact: initialData?.structureInfo?.contact || initialData?.contact || 'younes samia, berkat siham, aloui adel'
+    contact: initialData?.structureInfo?.contact || initialData?.contact || 'Berkat Siham'
   });
 
   const [formPublication, setFormPublication] = useState({
@@ -158,10 +158,10 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
 
     setStructureInfo({
       pole: initialData.structureInfo?.pole || initialData.pole || 'ALGER',
-      structure: initialData.structureInfo?.structure || initialData.structure || 'DTI',
+      structure: initialData.structureInfo?.structure || initialData.structure || 'TRC Siège / EXP',
       responsable_structure: initialData.structureInfo?.responsable_structure || initialData.responsable_structure || '/',
       responsable_service: initialData.structureInfo?.responsable_service || initialData.responsable_service || 'INTRANET',
-      contact: initialData.structureInfo?.contact || initialData.contact || 'younes samia, berkat siham, aloui adel'
+      contact: initialData.structureInfo?.contact || initialData.contact || 'Berkat Siham'
     });
 
     setFormPublication({
@@ -255,7 +255,7 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
       if (onSuccess) onSuccess(completeVmData);
       onClose();
     } catch (err) {
-      console.error('Erreur lors de la modification de la VM :', err);
+      console.error('Erreur lors de la sauvegarde de la VM :', err);
       alert(`Impossible d'enregistrer les modifications : ${err.message}`);
     } finally {
       setLoading(false);
@@ -266,14 +266,14 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
     <div className="fixed inset-0 bg-black/80 flex justify-center items-center z-[9999] p-4 backdrop-blur-sm overflow-y-auto">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl border border-slate-200 overflow-hidden flex flex-col max-h-[88vh] my-auto">
         
-        {/* Modal Header */}
+        {/* Header */}
         <div className="bg-slate-900 text-white px-6 py-4 flex justify-between items-center border-b border-slate-800 shrink-0">
           <div>
             <h3 className="font-bold text-base flex items-center gap-2">
               <span>📋</span> Formulaire Technique VM : <span className="text-amber-400 font-mono">{formPublication.app_name || 'Nouvelle VM'}</span>
             </h3>
             <p className="text-[11px] text-amber-300 mt-0.5">
-              Fiche technique officielle Sonatrach TRC | IP: <span className="font-mono">{formPublication.ip_address}</span>
+              Fiche technique Sonatrach TRC | IP: <span className="font-mono">{formPublication.ip_address}</span>
             </p>
           </div>
           <button 
@@ -285,7 +285,7 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
           </button>
         </div>
 
-        {/* Tab Navigation */}
+        {/* Navigation Tabs */}
         <div className="flex border-b bg-slate-100 text-xs font-semibold overflow-x-auto shrink-0">
           {[
             { id: 1, title: 'Principale', desc: 'Demandeur TRC' },
@@ -318,7 +318,6 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
               <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
                 <div className="border-b pb-2">
                   <h4 className="font-bold text-sm text-slate-800">Informations Demandeur & Structure Sonatrach TRC</h4>
-                  <p className="text-[11px] text-slate-500">Renseignez les champs de la structure initiatrice de la demande.</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -374,7 +373,7 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
                     <input 
                       type="text" 
                       required 
-                      className="w-full border p-2.5 rounded-lg bg-white text-xs outline-none focus:ring-2 focus:ring-amber-500 text-red-600 font-bold"
+                      className="w-full border p-2.5 rounded-lg bg-white text-xs outline-none focus:ring-2 focus:ring-amber-500 font-bold"
                       value={structureInfo.responsable_service}
                       onChange={e => setStructureInfo({...structureInfo, responsable_service: e.target.value})}
                     />
@@ -506,7 +505,6 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
               <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
                 <div className="border-b pb-2 flex justify-between items-center">
                   <h4 className="font-bold text-sm text-slate-800">Configuration Software & Technologies</h4>
-                  <span className="text-[11px] text-slate-500 font-medium">Existance (Oui / Non) & Version</span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-80 overflow-y-auto pr-1">
@@ -526,9 +524,7 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
                             const exists = e.target.value === 'Oui';
                             setSoftwareStack(prev =>
                               prev.map((item, i) =>
-                                i === idx
-                                  ? { ...item, exists, version: exists ? item.version : '' }
-                                  : item
+                                i === idx ? { ...item, exists, version: exists ? item.version : '' } : item
                               )
                             );
                           }}
@@ -546,9 +542,7 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
                           onChange={e => {
                             const version = e.target.value;
                             setSoftwareStack(prev =>
-                              prev.map((item, i) =>
-                                i === idx ? { ...item, version } : item
-                              )
+                              prev.map((item, i) => (i === idx ? { ...item, version } : item))
                             );
                           }}
                         />
@@ -560,7 +554,7 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
             </div>
           )}
 
-          {/* TAB 3 : INFORMATIONS LIÉES AU SERVICE / FLUX */}
+          {/* TAB 3 : FLUX & ARCHITECTURE */}
           {activeTab === 3 && (
             <div className="space-y-5">
               <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
@@ -578,10 +572,7 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
 
               <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
                 <div className="flex justify-between items-center border-b pb-2">
-                  <div>
-                    <h4 className="font-bold text-sm text-slate-800">Matrice des flux</h4>
-                    <p className="text-[11px] text-slate-500">Renseignez les lignes d'autorisations de trafic réseau.</p>
-                  </div>
+                  <h4 className="font-bold text-sm text-slate-800">Matrice des flux</h4>
                   <button 
                     type="button" 
                     onClick={addNetworkFlow}
@@ -613,7 +604,6 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
                           <input 
                             type="text" 
                             required 
-                            placeholder="ex: 10.10.0.0/16" 
                             className="w-full border p-1.5 rounded bg-white text-xs font-mono" 
                             value={flow.source} 
                             onChange={e => updateNetworkFlow(flow.id, 'source', e.target.value)} 
@@ -624,7 +614,6 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
                           <input 
                             type="text" 
                             required 
-                            placeholder="ex: 10.118.100.64" 
                             className="w-full border p-1.5 rounded bg-white text-xs font-mono" 
                             value={flow.destination} 
                             onChange={e => updateNetworkFlow(flow.id, 'destination', e.target.value)} 
@@ -635,7 +624,6 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
                           <input 
                             type="text" 
                             required 
-                            placeholder="ex: TCP/443" 
                             className="w-full border p-1.5 rounded bg-white text-xs" 
                             value={flow.service} 
                             onChange={e => updateNetworkFlow(flow.id, 'service', e.target.value)} 
@@ -646,7 +634,6 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
                           <input 
                             type="text" 
                             required 
-                            placeholder="ex: 443" 
                             className="w-full border p-1.5 rounded bg-white text-xs font-mono" 
                             value={flow.port} 
                             onChange={e => updateNetworkFlow(flow.id, 'port', e.target.value)} 
@@ -665,10 +652,9 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
                           </select>
                         </div>
                         <div>
-                          <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Description (Optionnel)</label>
+                          <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Description</label>
                           <input 
                             type="text" 
-                            placeholder="Description" 
                             className="w-full border p-1.5 rounded bg-white text-xs" 
                             value={flow.description} 
                             onChange={e => updateNetworkFlow(flow.id, 'description', e.target.value)} 
@@ -682,7 +668,7 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
             </div>
           )}
 
-          {/* TAB 4 : SUIVI DES NON CONFORMITÉS */}
+          {/* TAB 4 : SÉCURITÉ SI */}
           {activeTab === 4 && (
             <div className="space-y-5">
               <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
@@ -692,20 +678,20 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block font-semibold text-slate-500 mb-1">Entrée DNS (site web) - Optionnel</label>
+                    <label className="block font-semibold text-slate-500 mb-1">Entrée DNS (site web)</label>
                     <input 
                       type="text" 
-                      className="w-full border p-2.5 rounded-lg bg-slate-50 text-xs outline-none focus:ring-2 focus:ring-amber-500"
+                      className="w-full border p-2.5 rounded-lg bg-slate-50 text-xs outline-none"
                       value={securityParams.dns_site_web}
                       onChange={e => setSecurityParams({...securityParams, dns_site_web: e.target.value})}
                     />
                   </div>
 
                   <div>
-                    <label className="block font-semibold text-slate-500 mb-1">Adresse IP Publique - Optionnel</label>
+                    <label className="block font-semibold text-slate-500 mb-1">Adresse IP Publique</label>
                     <input 
                       type="text" 
-                      className="w-full border p-2.5 rounded-lg bg-slate-50 text-xs outline-none focus:ring-2 focus:ring-amber-500"
+                      className="w-full border p-2.5 rounded-lg bg-slate-50 text-xs outline-none"
                       value={securityParams.ip_publique}
                       onChange={e => setSecurityParams({...securityParams, ip_publique: e.target.value})}
                     />
@@ -718,19 +704,19 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
                     <input 
                       type="text" 
                       required 
-                      className="w-full border p-2.5 rounded-lg bg-white text-xs outline-none focus:ring-2 focus:ring-amber-500 font-mono"
+                      className="w-full border p-2.5 rounded-lg bg-white text-xs font-mono"
                       value={securityParams.ip_interne}
                       onChange={e => setSecurityParams({...securityParams, ip_interne: e.target.value})}
                     />
                   </div>
 
                   <div>
-                    <label className="block font-semibold text-slate-500 mb-1">Adresse IP Virtuelle F5 - Optionnel</label>
+                    <label className="block font-semibold text-slate-500 mb-1">Adresse IP Virtuelle F5</label>
                     <input 
                       type="text" 
-                      className="w-full border p-2.5 rounded-lg bg-slate-50 text-xs outline-none focus:ring-2 focus:ring-amber-500"
-                      value={securityParams.ip_virtuelle_f5}
-                      onChange={e => setSecurityParams({...securityParams, ip_virtuelle_f5: e.target.value})}
+                      className="w-full border p-2.5 rounded-lg bg-slate-50 text-xs outline-none"
+                      value={securityParams.ip_virtuelle || ''}
+                      onChange={e => setSecurityParams({...securityParams, ip_virtuelle: e.target.value})}
                     />
                   </div>
 
@@ -740,7 +726,7 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
                     </label>
                     <select 
                       required 
-                      className="w-full border p-2.5 rounded-lg bg-white text-xs outline-none focus:ring-2 focus:ring-amber-500 font-bold"
+                      className="w-full border p-2.5 rounded-lg bg-white text-xs font-bold"
                       value={securityParams.publication}
                       onChange={e => setSecurityParams({...securityParams, publication: e.target.value})}
                     >
@@ -756,7 +742,7 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
                     <input 
                       type="datetime-local" 
                       required 
-                      className="w-full border p-2.5 rounded-lg bg-white text-xs outline-none focus:ring-2 focus:ring-amber-500 text-amber-700 font-bold"
+                      className="w-full border p-2.5 rounded-lg bg-white text-xs text-amber-700 font-bold"
                       value={securityParams.date_derniere_maj}
                       onChange={e => setSecurityParams({...securityParams, date_derniere_maj: e.target.value})}
                     />
@@ -801,7 +787,7 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
 
                         <input 
                           type="text" 
-                          placeholder="Commentaires (Direction Sécurité SI)"
+                          placeholder="Commentaires"
                           className="border p-1.5 rounded-md text-xs w-64 bg-white"
                           value={ctrl.comments}
                           onChange={e => {
@@ -819,7 +805,7 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
             </div>
           )}
 
-          {/* Modal Footer */}
+          {/* Footer Actions */}
           <div className="pt-4 border-t flex justify-between items-center bg-white p-4 -mx-6 -mb-6 mt-4 shrink-0">
             <div className="flex items-center space-x-2">
               <button 
