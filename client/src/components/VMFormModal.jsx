@@ -596,7 +596,7 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
                   {networkFlows.map((flow, idx) => (
                     <div key={flow.id} className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-2">
                       <div className="flex justify-between items-center border-b pb-1">
-                        <span className="font-bold text-slate-700">Flux #{idx + 1}</span>
+                        <span className="font-bold text-slate-700">Flux {idx + 1}</span>
                         {networkFlows.length > 1 && (
                           <button 
                             type="button" 
@@ -778,7 +778,7 @@ export default function VMFormModal({ requestId, initialData, onClose, onSuccess
                   {securityCompliance.map((ctrl, idx) => (
                     <div key={ctrl.id || `ctrl-${idx}`} className="bg-slate-50 p-3 rounded-lg border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3">
                       <div className="flex-1">
-                        <span className="font-bold text-amber-700 mr-2">#{idx + 1}</span>
+                        <span className="font-bold text-amber-700 mr-2">{idx + 1}</span>
                         <span className="font-semibold text-slate-800 text-xs">{ctrl.control_name}</span>
                       </div>
 

@@ -72,7 +72,7 @@ export default function RequestDetailsModal({ request, onClose, onRefresh }) {
           <div>
             <div className="flex items-center gap-3">
               <span className="text-xs font-bold px-2.5 py-1 bg-amber-500 text-slate-950 rounded-md">
-                Demande #{request.id}
+                Demande {request.id}
               </span>
               <h3 className="font-bold text-lg">{request.title}</h3>
             </div>
@@ -125,7 +125,7 @@ export default function RequestDetailsModal({ request, onClose, onRefresh }) {
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-bold">
-                    <th className="p-3">#</th>
+                    <th className="p-3">N°</th>
                     <th className="p-3">Nom VM / Application</th>
                     <th className="p-3">Adresse IP</th>
                     <th className="p-3">Port</th>
@@ -142,7 +142,7 @@ export default function RequestDetailsModal({ request, onClose, onRefresh }) {
 
                     return (
                       <tr key={vm.id || vm._id || index} className="hover:bg-slate-50/80 transition">
-                        <td className="p-3 font-bold text-slate-500">#{index + 1}</td>
+                        <td className="p-3 font-bold text-slate-500">{index + 1}</td>
                         <td className="p-3 font-bold text-slate-900">{appName}</td>
                         <td className="p-3 font-mono text-amber-700 font-bold">{ip}</td>
                         <td className="p-3 font-mono text-slate-600">{port}</td>

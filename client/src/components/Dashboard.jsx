@@ -154,7 +154,7 @@ export default function Dashboard() {
             <tbody className="divide-y divide-slate-200 font-medium">
               {requests.map(req => (
                 <tr key={req.id} className="hover:bg-slate-50/80 transition">
-                  <td className="p-4 font-bold text-slate-500 whitespace-nowrap">#{req.id}</td>
+                  <td className="p-4 font-bold text-slate-500 whitespace-nowrap">{req.id}</td>
                   <td className="p-4 font-bold text-slate-900 whitespace-nowrap">{req.title}</td>
                   <td className="p-4 text-slate-600 whitespace-nowrap">
                     <span className="font-semibold text-slate-800">{req.pole || 'ALGER'}</span> - {req.structure || 'TRC Siège / EXP'}
