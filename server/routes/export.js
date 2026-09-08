@@ -6,7 +6,9 @@ const path = require('path');
 router.post('/export-formulaire', async (req, res) => {
   try {
     const data = req.body || {};
-    const templatePath = path.join(__dirname, '../formulaire_création_VM.xlsx');
+    
+    // Path updated to reference public/formulaire_création_VM_3.xlsx from root execution folder
+    const templatePath = path.join(process.cwd(), 'public', 'formulaire_création_VM_3.xlsx');
 
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(templatePath);
