@@ -4,16 +4,15 @@ Plateforme web full-stack développée pour la **Direction Technologies de l'Inf
 ---
 
 ## 📌 Table des Matières
-1. [Fonctionnalités Clés](#-fonctionnalités-clés)
-2. [Architecture Technique](#-architecture-technique)
-3. [Prérequis](#-prérequis)
-4. [Installation & Configuration](#-installation--configuration)
+[Fonctionnalités Clés](#-fonctionnalités-clés)
+[Prérequis](#-prérequis)
+[Installation & Configuration](#-installation--configuration)
    * [1. Base de Données (PostgreSQL / Docker)](#1-base-de-données-postgresql--docker)
    * [2. Serveur Backend (Node.js / Express)](#2-serveur-backend-nodejs--express)
    * [3. Application Frontend (React.js)](#3-application-frontend-reactjs)
-5. [Structure du Projet](#-structure-du-projet)
-6. [Génération du Schéma & Export Excel](#-génération-du-schéma--export-excel)
-7. [Auteur & Contexte Académique](#-auteur--contexte-académique)
+[Structure du Projet](#-structure-du-projet)
+[Génération du Schéma & Export Excel](#-génération-du-schéma--export-excel)
+[Auteur & Contexte Académique](#-auteur--contexte-académique)
 
 ---
 
@@ -24,25 +23,6 @@ Plateforme web full-stack développée pour la **Direction Technologies de l'Inf
 * **Génération Dynamique du Diagramme d'Architecture** : Rendu HTML5 Canvas haute définition intégrant les données réelles (ports, services, noms de VM) directement converti en image dans le fichier Excel.
 * **Exportation Complète `.xlsx` via ExcelJS** : Injection automatique des données dans les 4 onglets réglementaires de SONATRACH (`Principale`, `Publication VM`, `Informations liées au service`, `Suivi des Non conformités`).
 * **Module d'Audit Sécurité SI & RBAC** : Espace réservé aux auditeurs pour la validation des 8 points de conformité PSSI (DMZ, Antivirus, TLS, PoLP, Scans de vulnérabilités) avec verrouillage des accès demandeurs.
-
----
-
-## 🏗️ Architecture Technique
-
-┌─────────────────────────────────────────────────────────────────┐
-│                      Client React.js (SPA)                      │
-│   (Tailwind CSS, Dynamic Wizard Form, Canvas Diagram Renderer)   │
-└────────────────────────────────┬────────────────────────────────┘
-│ REST API (JSON)
-┌────────────────────────────────▼────────────────────────────────┐
-│                   Backend Node.js / Express.js                  │
-│       (Auth JWT, RBAC, Rule Engine, ExcelJS Export Pipeline)    │
-└───────────────────┬─────────────────────────┬───────────────────┘
-│ PostgreSQL Client       │ Image Injection
-┌───────────────────▼───────────┐ ┌───────────▼───────────────────┐
-│     PostgreSQL Database       │ │      Template Excel (.xlsx)     │
-│   (Dockerized / Relational)   │ │    (ExcelJS File Generation)    │
-└───────────────────────────────┘ └───────────────────────────────┘
 
 ---
 
