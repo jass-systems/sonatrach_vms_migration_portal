@@ -134,23 +134,57 @@ const drawArrowHead = (ctx, x, y, angle, color = '#2B78E4', size = 10) => {
 const generateExactTemplateArchitectureDiagram = async (rawVmData) => {
   if (typeof document === 'undefined') return null;
 
-  // Dynamic values from form data
-  const vmName = rawVmData.vm_name || rawVmData.formPublication?.app_name || rawVmData.app_name || rawVmData.nom_application || 'vm_app_dev_1';
-  const httpProtocol = rawVmData.formPublication?.publication_type || rawVmData.publication_type || 'INTERNET';
-  const httpPortVal = rawVmData.formPublication?.port || rawVmData.port || '444';
-  const dbServiceVal = rawVmData.db_service || rawVmData.formPublication?.db_service || 'Oracle DB';
-  const dbPortVal = rawVmData.db_port || rawVmData.formPublication?.db_port || '1521';
-  const sshPortVal = rawVmData.ssh_port || rawVmData.formPublication?.ssh_port || '22';
-  const rdpPortVal = rawVmData.rdp_port || rawVmData.formPublication?.rdp_port || '3389';
+  // 1. Extraction dynamique de la matrice des flux (networkFlows)
+  const flows = rawVmData.networkFlows || rawVmData.network_flows || [];
 
-  // Load icons
+  // 2. Identification dynamique des lignes de flux selon le type/service
+  const webFlow = flows.find(f => 
+    (f.flow_type || f.type || '').toLowerCase().includes('web') || 
+    (f.flow_type || f.type || '').toLowerCase().includes('applicatif')
+  );
+
+  const dbFlow = flows.find(f => 
+    (f.flow_type || f.type || '').toLowerCase().includes('base') || 
+    (f.flow_type || f.type || '').toLowerCase().includes('db') ||
+    (f.flow_type || f.type || '').toLowerCase().includes('bdd') ||
+    (f.service || '').toLowerCase().includes('sql') ||
+    (f.service || '').toLowerCase().includes('oracle') ||
+    (f.service || '').toLowerCase().includes('postgres')
+  );
+
+  const sshFlow = flows.find(f => 
+    (f.service || '').toLowerCase().includes('ssh') || 
+    String(f.port || f.ports) === '22'
+  );
+
+  const rdpFlow = flows.find(f => 
+    (f.service || '').toLowerCase().includes('rdp') || 
+    String(f.port || f.ports) === '3389'
+  );
+
+  // 3. Extraction des paramètres dynamiques avec repli sur le formulaire
+  const vmName = rawVmData.vm_name || rawVmData.formPublication?.app_name || rawVmData.app_name || rawVmData.nom_application || 'vm_app_dev_1';
+  
+  // Flux Web (WAN -> VM)
+  const httpProtocol = webFlow?.service || rawVmData.formPublication?.publication_type || rawVmData.publication_type || 'INTERNET';
+  const httpPortVal = webFlow?.port || webFlow?.ports || rawVmData.formPublication?.port || rawVmData.port || '443';
+
+  // Base de données (VM -> DB & Admin -> DB)
+  const dbServiceVal = dbFlow?.service || rawVmData.db_service || rawVmData.formPublication?.db_service || 'Oracle DB';
+  const dbPortVal = dbFlow?.port || dbFlow?.ports || rawVmData.db_port || rawVmData.formPublication?.db_port || '1521';
+
+  // Administration (Admin -> VM)
+  const sshPortVal = sshFlow?.port || sshFlow?.ports || rawVmData.ssh_port || '22';
+  const rdpPortVal = rdpFlow?.port || rdpFlow?.ports || rawVmData.rdp_port || '3389';
+
+  // Chargeur d'icônes
   const [imgCloud, imgDb, imgAdmin] = await Promise.all([
     loadCanvasImage('/img_0.png'),
     loadCanvasImage('/img_1.png'),
     loadCanvasImage('/img_2.png')
   ]);
 
-  // High DPI Canvas Setup
+  // Canvas High DPI Setup
   const canvas = document.createElement('canvas');
   const width = 1400;
   const height = 580;
@@ -161,11 +195,11 @@ const generateExactTemplateArchitectureDiagram = async (rawVmData) => {
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
 
-  // Background
+  // Arrière-plan
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, width, height);
 
-  // Inner Container
+  // Conteneur interne
   const boxX = 30, boxY = 20, boxW = 1340, boxH = 540;
   ctx.fillStyle = '#' + COLORS.CANVAS_BG;
   ctx.fillRect(boxX, boxY, boxW, boxH);
@@ -173,17 +207,17 @@ const generateExactTemplateArchitectureDiagram = async (rawVmData) => {
   ctx.lineWidth = 2;
   ctx.strokeRect(boxX, boxY, boxW, boxH);
 
-  // 1. Cloud Component (SH-WAN)
+  // 1. Composant Cloud (SH-WAN)
   const cloudX = 120, cloudY = 60, cloudW = 190, cloudH = 95;
   if (imgCloud) {
     ctx.drawImage(imgCloud, cloudX, cloudY, cloudW, cloudH);
   }
 
-  // 2. Main VM Box
+  // 2. Boîte VM Principale
   const appBoxX = 540, appBoxY = 230, appBoxW = 280, appBoxH = 90;
   const appCenterX = appBoxX + appBoxW / 2;
 
-  // WAN Arrow -> VM
+  // Flèche WAN -> VM
   ctx.beginPath();
   ctx.strokeStyle = '#2B78E4';
   ctx.lineWidth = 2.5;
@@ -193,7 +227,7 @@ const generateExactTemplateArchitectureDiagram = async (rawVmData) => {
   ctx.stroke();
   drawArrowHead(ctx, appCenterX, appBoxY, Math.PI / 2, '#2B78E4', 10);
 
-  // WAN Callout Box
+  // Boîte d'information WAN
   const wanBoxX = 370, wanBoxY = 80;
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(wanBoxX, wanBoxY, 145, 40);
@@ -208,7 +242,7 @@ const generateExactTemplateArchitectureDiagram = async (rawVmData) => {
   ctx.font = '11px Arial, sans-serif';
   ctx.fillText(`${httpProtocol.toUpperCase()}/ TCP ${httpPortVal};`, wanBoxX + 8, wanBoxY + 31);
 
-  // Draw VM Box
+  // Dessin du rectangle VM
   ctx.fillStyle = '#' + COLORS.TEMPLATE_BLUE;
   ctx.fillRect(appBoxX, appBoxY, appBoxW, appBoxH);
 
@@ -217,7 +251,7 @@ const generateExactTemplateArchitectureDiagram = async (rawVmData) => {
   ctx.textAlign = 'center';
   ctx.fillText(vmName, appBoxX + appBoxW / 2, appBoxY + 52);
 
-  // 3. Database Component (Crops bottom 35% of PNG to remove blurry built-in label)
+  // 3. Composant Base de données
   const dbX = 1040, dbY = 225, dbW = 75, dbH = 85;
 
   ctx.beginPath();
@@ -228,7 +262,7 @@ const generateExactTemplateArchitectureDiagram = async (rawVmData) => {
   ctx.stroke();
   drawArrowHead(ctx, dbX, appBoxY + appBoxH / 2, 0, '#2B78E4', 10);
 
-  // Database Callout Box (VM to DB)
+  // Boîte d'information VM -> DB
   const appCalloutX = 845, appCalloutY = 245;
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(appCalloutX, appCalloutY, 160, 40);
@@ -249,7 +283,7 @@ const generateExactTemplateArchitectureDiagram = async (rawVmData) => {
     ctx.drawImage(imgDb, 0, 0, sW, Math.floor(sH * 0.65), dbX, dbY, dbW, dbH * 0.65);
   }
 
-  // Database Label inside White Text Space Box
+  // Libellé de la Base de données
   const dbLabelBoxW = 135, dbLabelBoxH = 26;
   const dbLabelBoxX = dbX + (dbW / 2) - (dbLabelBoxW / 2);
   const dbLabelBoxY = dbY + (dbH * 0.65) + 8;
@@ -265,7 +299,7 @@ const generateExactTemplateArchitectureDiagram = async (rawVmData) => {
   ctx.textAlign = 'center';
   ctx.fillText('Base de données', dbLabelBoxX + dbLabelBoxW / 2, dbLabelBoxY + 17);
 
-  // 4. Administrateur Interne Component (Crops bottom 35% of PNG to remove blurry built-in label)
+  // 4. Composant Administrateur Interne
   const adminX = 110, adminY = 360, adminW = 55, adminH = 70;
   if (imgAdmin) {
     const sW = imgAdmin.naturalWidth || imgAdmin.width;
@@ -273,7 +307,7 @@ const generateExactTemplateArchitectureDiagram = async (rawVmData) => {
     ctx.drawImage(imgAdmin, 0, 0, sW, Math.floor(sH * 0.65), adminX, adminY, adminW, adminH * 0.65);
   }
 
-  // Administrateur Interne Label inside White Text Space Box
+  // Libellé Administrateur Interne
   const adminLabelBoxW = 150, adminLabelBoxH = 26;
   const adminLabelBoxX = adminX + (adminW / 2) - (adminLabelBoxW / 2);
   const adminLabelBoxY = adminY + (adminH * 0.65) + 8;
@@ -289,7 +323,7 @@ const generateExactTemplateArchitectureDiagram = async (rawVmData) => {
   ctx.textAlign = 'center';
   ctx.fillText('Administrateur interne', adminLabelBoxX + adminLabelBoxW / 2, adminLabelBoxY + 17);
 
-  // Connection: Admin -> VM (Dashed Orange Line)
+  // Connexion Admin -> VM (Ligne Orange Pointillée)
   const orangeColor = '#' + COLORS.ORANGE;
   ctx.strokeStyle = orangeColor;
   ctx.lineWidth = 2.5;
@@ -304,7 +338,7 @@ const generateExactTemplateArchitectureDiagram = async (rawVmData) => {
   ctx.setLineDash([]);
   drawArrowHead(ctx, appBoxX, appBoxY + 45, 0, orangeColor, 10);
 
-  // Admin Callout Box (SSH / RDP)
+  // Boîte d'information Admin (SSH / RDP)
   const adminCalloutX = 210, adminCalloutY = 360;
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(adminCalloutX, adminCalloutY, 160, 40);
@@ -318,7 +352,7 @@ const generateExactTemplateArchitectureDiagram = async (rawVmData) => {
   ctx.fillText(`SSH/TCP ${sshPortVal} ;`, adminCalloutX + 8, adminCalloutY + 15);
   ctx.fillText(`RDP/TCP ${rdpPortVal};`, adminCalloutX + 8, adminCalloutY + 31);
 
-  // Connection: Admin -> DB (Dashed Orange Line)
+  // Connexion Admin -> DB (Ligne Orange Pointillée)
   ctx.strokeStyle = orangeColor;
   ctx.lineWidth = 2.5;
   ctx.setLineDash([6, 4]);
@@ -338,7 +372,7 @@ const generateExactTemplateArchitectureDiagram = async (rawVmData) => {
   ctx.setLineDash([]);
   drawArrowHead(ctx, dbLineTargetX, dbLineTargetY + 2, -Math.PI / 2, orangeColor, 10);
 
-  // Callout Box between Admin Interne and Base de données on the bottom line
+  // Boîte d'information Admin -> DB
   const adminDbCalloutW = 180, adminDbCalloutH = 40;
   const adminDbCalloutX = (adminLineStartX + dbLineTargetX) / 2 - adminDbCalloutW / 2;
   const adminDbCalloutY = 515 - adminDbCalloutH / 2;
@@ -698,7 +732,7 @@ export const exportVMToExcel = async (rawVmData) => {
 
     let currentR3 = 23;
 
-    // Architecture Banner
+    // Banner Architecture
     ws3.getRow(currentR3).height = 25;
     ws3.mergeCells(`B${currentR3}:R${currentR3}`);
     styleRange(ws3, 'B', currentR3, 'R', currentR3, {
@@ -712,7 +746,7 @@ export const exportVMToExcel = async (rawVmData) => {
 
     currentR3++;
 
-    // Architecture Diagram Image
+    // Image du Schéma d'Architecture Dynamique
     if (archImageId !== null) {
       const imgStartRow = currentR3 + 1;
       const imgEndRow = currentR3 + 22;
@@ -730,7 +764,7 @@ export const exportVMToExcel = async (rawVmData) => {
       currentR3 += 2;
     }
 
-    // Network Flow Matrix Banner
+    // Banner Matrice des flux
     ws3.getRow(currentR3).height = 25;
     ws3.mergeCells(`B${currentR3}:R${currentR3}`);
     styleRange(ws3, 'B', currentR3, 'R', currentR3, {
@@ -909,7 +943,7 @@ export const exportVMToExcel = async (rawVmData) => {
       styleRange(ws4, 'B', r, 'D', r, { border: thinBlackBorder });
     });
 
-    // Save Workbook
+    // Sauvegarde du fichier Excel
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const safeAppName = appName ? appName.replace(/[/\\?%*:|"<>]/g, '_').replace(/\s+/g, '_') : 'export';
