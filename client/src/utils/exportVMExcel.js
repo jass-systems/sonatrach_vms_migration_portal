@@ -134,24 +134,39 @@ const drawArrowHead = (ctx, x, y, angle, color = '#2B78E4', size = 10) => {
 const generateExactTemplateArchitectureDiagram = async (rawVmData) => {
   if (typeof document === 'undefined') return null;
 
-  // 1. Extraction dynamique de la matrice des flux (networkFlows)
+  // 1. Matrice des flux dynamiques
   const flows = rawVmData.networkFlows || rawVmData.network_flows || [];
 
-  // 2. Identification dynamique des lignes de flux selon le type/service
-  const webFlow = flows.find(f => 
-    (f.flow_type || f.type || '').toLowerCase().includes('web') || 
-    (f.flow_type || f.type || '').toLowerCase().includes('applicatif')
-  );
+  // 2. Identification dynamique de SH-WAN / Web flow
+  const webFlow = flows.find(f => {
+    const type = (f.flow_type || f.type || '').toLowerCase();
+    const src = (f.source || f.src || '').toLowerCase();
+    const service = (f.service || '').toLowerCase();
+    return type.includes('web') || type.includes('applicatif') || type.includes('wan') ||
+           src.includes('wan') || src.includes('internet') || src.includes('sh-wan') ||
+           service.includes('http') || service.includes('internet');
+  });
 
-  const dbFlow = flows.find(f => 
-    (f.flow_type || f.type || '').toLowerCase().includes('base') || 
-    (f.flow_type || f.type || '').toLowerCase().includes('db') ||
-    (f.flow_type || f.type || '').toLowerCase().includes('bdd') ||
-    (f.service || '').toLowerCase().includes('sql') ||
-    (f.service || '').toLowerCase().includes('oracle') ||
-    (f.service || '').toLowerCase().includes('postgres')
-  );
+  // 3. Identification dynamique Admin -> DB flow
+  const adminDbFlow = flows.find(f => {
+    const src = (f.source || f.src || '').toLowerCase();
+    const type = (f.flow_type || f.type || '').toLowerCase();
+    const desc = (f.description || f.desc || '').toLowerCase();
+    const service = (f.service || '').toLowerCase();
+    return (src.includes('admin') || type.includes('admin') || desc.includes('admin')) &&
+           (type.includes('db') || type.includes('base') || type.includes('bdd') || desc.includes('db') || service.includes('sql') || service.includes('oracle') || service.includes('postgres'));
+  });
 
+  // 4. Identification dynamique VM -> DB flow
+  const dbFlow = flows.find(f => {
+    if (adminDbFlow && f === adminDbFlow) return false;
+    const type = (f.flow_type || f.type || '').toLowerCase();
+    const service = (f.service || '').toLowerCase();
+    return type.includes('base') || type.includes('db') || type.includes('bdd') ||
+           service.includes('sql') || service.includes('oracle') || service.includes('postgres');
+  });
+
+  // 5. Identification dynamique SSH & RDP
   const sshFlow = flows.find(f => 
     (f.service || '').toLowerCase().includes('ssh') || 
     String(f.port || f.ports) === '22'
@@ -162,18 +177,22 @@ const generateExactTemplateArchitectureDiagram = async (rawVmData) => {
     String(f.port || f.ports) === '3389'
   );
 
-  // 3. Extraction des paramètres dynamiques avec repli sur le formulaire
+  // 6. Extraction Dynamique des Valeurs (avec fallback multi-champs)
   const vmName = rawVmData.vm_name || rawVmData.formPublication?.app_name || rawVmData.app_name || rawVmData.nom_application || 'vm_app_dev_1';
   
-  // Flux Web (WAN -> VM)
-  const httpProtocol = webFlow?.service || rawVmData.formPublication?.publication_type || rawVmData.publication_type || 'INTERNET';
+  // SH-WAN / Web parameters
+  const httpProtocol = webFlow?.service || rawVmData.formPublication?.publication_type || rawVmData.publication_type || rawVmData.publication || 'INTERNET';
   const httpPortVal = webFlow?.port || webFlow?.ports || rawVmData.formPublication?.port || rawVmData.port || '443';
 
-  // Base de données (VM -> DB & Admin -> DB)
+  // VM -> DB parameters
   const dbServiceVal = dbFlow?.service || rawVmData.db_service || rawVmData.formPublication?.db_service || 'Oracle DB';
   const dbPortVal = dbFlow?.port || dbFlow?.ports || rawVmData.db_port || rawVmData.formPublication?.db_port || '1521';
 
-  // Administration (Admin -> VM)
+  // Admin -> DB parameters
+  const adminDbServiceVal = adminDbFlow?.service || rawVmData.admin_db_service || rawVmData.formPublication?.admin_db_service || dbServiceVal;
+  const adminDbPortVal = adminDbFlow?.port || adminDbFlow?.ports || rawVmData.admin_db_port || rawVmData.formPublication?.admin_db_port || dbPortVal;
+
+  // Admin -> VM parameters
   const sshPortVal = sshFlow?.port || sshFlow?.ports || rawVmData.ssh_port || '22';
   const rdpPortVal = rdpFlow?.port || rdpFlow?.ports || rawVmData.rdp_port || '3389';
 
@@ -195,11 +214,11 @@ const generateExactTemplateArchitectureDiagram = async (rawVmData) => {
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
 
-  // Arrière-plan
+  // Background
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, width, height);
 
-  // Conteneur interne
+  // Container Box
   const boxX = 30, boxY = 20, boxW = 1340, boxH = 540;
   ctx.fillStyle = '#' + COLORS.CANVAS_BG;
   ctx.fillRect(boxX, boxY, boxW, boxH);
@@ -207,17 +226,17 @@ const generateExactTemplateArchitectureDiagram = async (rawVmData) => {
   ctx.lineWidth = 2;
   ctx.strokeRect(boxX, boxY, boxW, boxH);
 
-  // 1. Composant Cloud (SH-WAN)
+  // 1. Cloud Component (SH-WAN)
   const cloudX = 120, cloudY = 60, cloudW = 190, cloudH = 95;
   if (imgCloud) {
     ctx.drawImage(imgCloud, cloudX, cloudY, cloudW, cloudH);
   }
 
-  // 2. Boîte VM Principale
+  // 2. Main VM Box
   const appBoxX = 540, appBoxY = 230, appBoxW = 280, appBoxH = 90;
   const appCenterX = appBoxX + appBoxW / 2;
 
-  // Flèche WAN -> VM
+  // Arrow WAN -> VM
   ctx.beginPath();
   ctx.strokeStyle = '#2B78E4';
   ctx.lineWidth = 2.5;
@@ -227,13 +246,13 @@ const generateExactTemplateArchitectureDiagram = async (rawVmData) => {
   ctx.stroke();
   drawArrowHead(ctx, appCenterX, appBoxY, Math.PI / 2, '#2B78E4', 10);
 
-  // Boîte d'information WAN
+  // Dynamic SH-WAN Callout Box
   const wanBoxX = 370, wanBoxY = 80;
   ctx.fillStyle = '#FFFFFF';
-  ctx.fillRect(wanBoxX, wanBoxY, 145, 40);
+  ctx.fillRect(wanBoxX, wanBoxY, 150, 40);
   ctx.strokeStyle = '#CBD5E1';
   ctx.lineWidth = 1;
-  ctx.strokeRect(wanBoxX, wanBoxY, 145, 40);
+  ctx.strokeRect(wanBoxX, wanBoxY, 150, 40);
 
   ctx.fillStyle = '#1F2937';
   ctx.font = 'bold 11px Arial, sans-serif';
@@ -242,7 +261,7 @@ const generateExactTemplateArchitectureDiagram = async (rawVmData) => {
   ctx.font = '11px Arial, sans-serif';
   ctx.fillText(`${httpProtocol.toUpperCase()}/ TCP ${httpPortVal};`, wanBoxX + 8, wanBoxY + 31);
 
-  // Dessin du rectangle VM
+  // VM Rectangle Box
   ctx.fillStyle = '#' + COLORS.TEMPLATE_BLUE;
   ctx.fillRect(appBoxX, appBoxY, appBoxW, appBoxH);
 
@@ -251,7 +270,7 @@ const generateExactTemplateArchitectureDiagram = async (rawVmData) => {
   ctx.textAlign = 'center';
   ctx.fillText(vmName, appBoxX + appBoxW / 2, appBoxY + 52);
 
-  // 3. Composant Base de données
+  // 3. Database Component
   const dbX = 1040, dbY = 225, dbW = 75, dbH = 85;
 
   ctx.beginPath();
@@ -262,7 +281,7 @@ const generateExactTemplateArchitectureDiagram = async (rawVmData) => {
   ctx.stroke();
   drawArrowHead(ctx, dbX, appBoxY + appBoxH / 2, 0, '#2B78E4', 10);
 
-  // Boîte d'information VM -> DB
+  // Dynamic VM -> DB Callout Box
   const appCalloutX = 845, appCalloutY = 245;
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(appCalloutX, appCalloutY, 160, 40);
@@ -283,7 +302,7 @@ const generateExactTemplateArchitectureDiagram = async (rawVmData) => {
     ctx.drawImage(imgDb, 0, 0, sW, Math.floor(sH * 0.65), dbX, dbY, dbW, dbH * 0.65);
   }
 
-  // Libellé de la Base de données
+  // Database Label
   const dbLabelBoxW = 135, dbLabelBoxH = 26;
   const dbLabelBoxX = dbX + (dbW / 2) - (dbLabelBoxW / 2);
   const dbLabelBoxY = dbY + (dbH * 0.65) + 8;
@@ -299,7 +318,7 @@ const generateExactTemplateArchitectureDiagram = async (rawVmData) => {
   ctx.textAlign = 'center';
   ctx.fillText('Base de données', dbLabelBoxX + dbLabelBoxW / 2, dbLabelBoxY + 17);
 
-  // 4. Composant Administrateur Interne
+  // 4. Admin Component
   const adminX = 110, adminY = 360, adminW = 55, adminH = 70;
   if (imgAdmin) {
     const sW = imgAdmin.naturalWidth || imgAdmin.width;
@@ -307,7 +326,7 @@ const generateExactTemplateArchitectureDiagram = async (rawVmData) => {
     ctx.drawImage(imgAdmin, 0, 0, sW, Math.floor(sH * 0.65), adminX, adminY, adminW, adminH * 0.65);
   }
 
-  // Libellé Administrateur Interne
+  // Admin Label
   const adminLabelBoxW = 150, adminLabelBoxH = 26;
   const adminLabelBoxX = adminX + (adminW / 2) - (adminLabelBoxW / 2);
   const adminLabelBoxY = adminY + (adminH * 0.65) + 8;
@@ -323,7 +342,7 @@ const generateExactTemplateArchitectureDiagram = async (rawVmData) => {
   ctx.textAlign = 'center';
   ctx.fillText('Administrateur interne', adminLabelBoxX + adminLabelBoxW / 2, adminLabelBoxY + 17);
 
-  // Connexion Admin -> VM (Ligne Orange Pointillée)
+  // Admin -> VM Connection (Orange Dashed)
   const orangeColor = '#' + COLORS.ORANGE;
   ctx.strokeStyle = orangeColor;
   ctx.lineWidth = 2.5;
@@ -338,7 +357,7 @@ const generateExactTemplateArchitectureDiagram = async (rawVmData) => {
   ctx.setLineDash([]);
   drawArrowHead(ctx, appBoxX, appBoxY + 45, 0, orangeColor, 10);
 
-  // Boîte d'information Admin (SSH / RDP)
+  // Dynamic Admin -> VM Callout Box
   const adminCalloutX = 210, adminCalloutY = 360;
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(adminCalloutX, adminCalloutY, 160, 40);
@@ -352,7 +371,7 @@ const generateExactTemplateArchitectureDiagram = async (rawVmData) => {
   ctx.fillText(`SSH/TCP ${sshPortVal} ;`, adminCalloutX + 8, adminCalloutY + 15);
   ctx.fillText(`RDP/TCP ${rdpPortVal};`, adminCalloutX + 8, adminCalloutY + 31);
 
-  // Connexion Admin -> DB (Ligne Orange Pointillée)
+  // Admin -> DB Connection (Orange Dashed)
   ctx.strokeStyle = orangeColor;
   ctx.lineWidth = 2.5;
   ctx.setLineDash([6, 4]);
@@ -372,7 +391,7 @@ const generateExactTemplateArchitectureDiagram = async (rawVmData) => {
   ctx.setLineDash([]);
   drawArrowHead(ctx, dbLineTargetX, dbLineTargetY + 2, -Math.PI / 2, orangeColor, 10);
 
-  // Boîte d'information Admin -> DB
+  // Dynamic Admin -> DB Callout Box
   const adminDbCalloutW = 180, adminDbCalloutH = 40;
   const adminDbCalloutX = (adminLineStartX + dbLineTargetX) / 2 - adminDbCalloutW / 2;
   const adminDbCalloutY = 515 - adminDbCalloutH / 2;
@@ -388,7 +407,7 @@ const generateExactTemplateArchitectureDiagram = async (rawVmData) => {
   ctx.textAlign = 'left';
   ctx.fillText('Service/ Ports:', adminDbCalloutX + 8, adminDbCalloutY + 15);
   ctx.font = '11px Arial, sans-serif';
-  ctx.fillText(`${dbServiceVal}/ TCP ${dbPortVal}`, adminDbCalloutX + 8, adminDbCalloutY + 31);
+  ctx.fillText(`${adminDbServiceVal}/ TCP ${adminDbPortVal}`, adminDbCalloutX + 8, adminDbCalloutY + 31);
 
   return canvas.toDataURL('image/png');
 };
@@ -943,7 +962,7 @@ export const exportVMToExcel = async (rawVmData) => {
       styleRange(ws4, 'B', r, 'D', r, { border: thinBlackBorder });
     });
 
-    // Sauvegarde du fichier Excel
+    // Save File
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const safeAppName = appName ? appName.replace(/[/\\?%*:|"<>]/g, '_').replace(/\s+/g, '_') : 'export';
